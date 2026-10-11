@@ -13,7 +13,7 @@
 | 08 | release | todo | |
 
 ## Pending kd (needs the owner)
-- [ ] Create GitHub repo `kdt523/tinycu`, `gh auth login`, first push (CI green on push)
+- [x] GitHub repo `kdt523/tinycu` created, first push done, CI green (2026-10-11)
 - [ ] Colab GPU runs (phases 5 and 7)
 - [ ] Codecov token (phase 8)
 - [ ] Demo recording (phase 8)
