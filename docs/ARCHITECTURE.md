@@ -108,6 +108,31 @@ from C semantics). An explicit `.rn` on `add/sub/mul` tells ptxas not to contrac
 confirms it: saxpy compiles to `FMUL` + `FADD`, not `FFMA`. Bit-exact GPU vs interpreter results
 depend on this.
 
+## GPU runtime and test paths
+
+```
+ tests/kernels/k.tc ──tinycu──► k.ptx ──┬─ CuPy RawModule (python)   ─┐
+                                         └─ tinycu-run (C++ Driver API)┤
+ tests/kernels/k.cu ──NVRTC -fmad=false──► twin kernel                ├─► bit-exact compare
+ tests/kernels/k.tc ──tinycu --interp──► interpreter outputs          │   (tcharness.suite)
+ tcharness/references.py ──NumPy──► reference outputs ─────────────────┘
+```
+
+- **`tinycu-run`** (`src/runtime/tinycu_run.cpp`, built when CMake finds the CUDA toolkit):
+  `cuInit → cuDeviceGet → cuDevicePrimaryCtxRetain → cuModuleLoadDataEx` (with the JIT error log
+  buffer, so a bad PTX prints the driver's message) `→ cuModuleGetFunction → cuMemAlloc /
+  cuMemcpyHtoD → cuLaunchKernel → cuCtxSynchronize → cuMemcpyDtoH`. Every call goes through
+  `CHECK_CU`, which prints `cuGetErrorName`. `--time` reports the median and minimum of 20
+  `cuEvent` timings. Input and output JSON use the same format as `tinycu --interp`.
+- **`tcharness.suite`** loads each `tests/kernels/<k>.json` spec, generates deterministic inputs
+  (the seed comes from the kernel name and n), and runs the paths `interp`, `gpu` (CuPy, falling
+  back to `tinycu-run`) and `nvrtc`. Every path is compared bit-exactly with the NumPy
+  reference.
+- **Kernel suite:** 22 kernels covering int/float arithmetic, wrap-around, branches, every loop
+  form, a grid-stride loop, shared memory with barriers, matmul and a stencil. Sizes include
+  non-multiples of the block size. Each kernel has a CUDA twin; twins use `unsigned` where TinyCU
+  relies on wrap-around, because signed overflow is UB in CUDA C++.
+
 ## Tooling
 - `tools/ptx_check.sh k.ptx [sm]` runs `ptxas -v` and prints registers, spill bytes and shared
   memory per kernel.

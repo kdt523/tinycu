@@ -55,8 +55,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y ninja-build
       - name: Build tinycu
         run: |
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTINYCU_BUILD_RUNTIME=OFF -DBUILD_TESTING=OFF
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTINYCU_BUILD_RUNTIME=ON -DBUILD_TESTING=OFF
           cmake --build build
+      - name: CUDA twins compile (nvcc -fmad=false)
+        run: for cu in tests/kernels/*.cu; do nvcc -ptx -arch=sm_75 -fmad=false "$cu" -o /tmp/twin.ptx || exit 1; done
       - name: ptxas accepts every test program (-O0 and -O1)
         run: |
           ptxas --version

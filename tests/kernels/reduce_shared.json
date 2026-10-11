@@ -1,0 +1,20 @@
+{
+  "kernel": "reduce_shared",
+  "grid": "ceil(n/256)",
+  "block": 256,
+  "n": [
+    1,
+    255,
+    256,
+    1000,
+    100003
+  ],
+  "params": [
+    "rand_f32(-1,1)",
+    "zeros[ceil(n/256)]",
+    "n"
+  ],
+  "outputs": [
+    "out"
+  ]
+}

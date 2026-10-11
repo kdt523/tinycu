@@ -1,0 +1,11 @@
+// y = max(x, 0) with an if
+kernel relu(float* x, float* y, int n) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
+    float v = x[i];
+    if (v < 0.0) {
+      v = 0.0;
+    }
+    y[i] = v;
+  }
+}

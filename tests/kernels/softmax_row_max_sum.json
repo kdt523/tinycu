@@ -1,0 +1,22 @@
+{
+  "kernel": "softmax_row_max_sum",
+  "grid": "ceil(n/128)",
+  "block": 128,
+  "n": [
+    1,
+    127,
+    128,
+    1000
+  ],
+  "params": [
+    "rand_f32[n*37]",
+    "zeros",
+    "zeros",
+    "n",
+    "scalar:37"
+  ],
+  "outputs": [
+    "rmax",
+    "rsum"
+  ]
+}

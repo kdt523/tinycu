@@ -1,0 +1,17 @@
+// for loop with break and continue
+kernel break_continue(int* x, int* o, int n) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
+    int s = 0;
+    for (int j = 0; j < x[i]; j++) {
+      if (j % 3 == 0) {
+        continue;
+      }
+      if (j > 40) {
+        break;
+      }
+      s += j * j;
+    }
+    o[i] = s;
+  }
+}

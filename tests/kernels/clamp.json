@@ -1,0 +1,21 @@
+{
+  "kernel": "clamp",
+  "grid": "ceil(n/256)",
+  "block": 256,
+  "n": [
+    1,
+    255,
+    256,
+    1000,
+    100003
+  ],
+  "params": [
+    "rand_f32",
+    "scalar:-2.5",
+    "scalar:4.0",
+    "n"
+  ],
+  "outputs": [
+    "x"
+  ]
+}

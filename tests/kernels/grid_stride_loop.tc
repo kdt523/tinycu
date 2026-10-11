@@ -1,0 +1,6 @@
+// Fixed-size grid; each thread strides over the whole array.
+kernel grid_stride_loop(float* x, float* y, float s, int n) {
+  for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += blockDim.x * gridDim.x) {
+    y[i] = x[i] * s + 1.0;
+  }
+}

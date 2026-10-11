@@ -1,0 +1,21 @@
+{
+  "kernel": "matmul_naive",
+  "grid": "ceil(n*n/128)",
+  "block": 128,
+  "n": [
+    1,
+    7,
+    16,
+    33,
+    64
+  ],
+  "params": [
+    "rand_f32(-2,2)[n*n]",
+    "rand_f32(-2,2)[n*n]",
+    "zeros[n*n]",
+    "n"
+  ],
+  "outputs": [
+    "c"
+  ]
+}

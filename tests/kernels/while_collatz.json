@@ -1,0 +1,20 @@
+{
+  "kernel": "while_collatz",
+  "grid": "ceil(n/256)",
+  "block": 256,
+  "n": [
+    1,
+    255,
+    256,
+    1000,
+    20011
+  ],
+  "params": [
+    "rand_i32(1,10000)",
+    "zeros",
+    "n"
+  ],
+  "outputs": [
+    "steps"
+  ]
+}

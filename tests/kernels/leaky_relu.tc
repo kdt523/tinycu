@@ -1,0 +1,12 @@
+// y = x < 0 ? alpha*x : x
+kernel leaky_relu(float* x, float* y, float alpha, int n) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
+    float v = x[i];
+    if (v < 0.0) {
+      y[i] = alpha * v;
+    } else {
+      y[i] = v;
+    }
+  }
+}

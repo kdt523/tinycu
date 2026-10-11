@@ -1,0 +1,21 @@
+{
+  "kernel": "dot_partial",
+  "grid": "ceil(ceil(n/16)/128)",
+  "block": 128,
+  "n": [
+    1,
+    255,
+    256,
+    1000,
+    100003
+  ],
+  "params": [
+    "rand_f32(-1,1)",
+    "rand_f32(-1,1)",
+    "zeros[ceil(n/16)]",
+    "n"
+  ],
+  "outputs": [
+    "partial"
+  ]
+}

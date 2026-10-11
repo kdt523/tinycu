@@ -1,0 +1,13 @@
+// C = A * B for n x n matrices, one thread per output element.
+kernel matmul_naive(float* a, float* b, float* c, int n) {
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx < n * n) {
+    int row = idx / n;
+    int col = idx % n;
+    float acc = 0.0;
+    for (int k = 0; k < n; k++) {
+      acc += a[row * n + k] * b[k * n + col];
+    }
+    c[idx] = acc;
+  }
+}

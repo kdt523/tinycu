@@ -1,0 +1,8 @@
+// Horner evaluation of 3x^3 - 2x^2 + 0.5x - 7.25
+kernel polynomial(float* x, float* y, int n) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
+    float v = x[i];
+    y[i] = ((3.0 * v - 2.0) * v + 0.5) * v - 7.25;
+  }
+}

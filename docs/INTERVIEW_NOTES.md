@@ -217,3 +217,59 @@ The PTXAS team's output is exactly this object file.
 GPU with no matching cubin, the driver JIT-compiles the PTX with its built-in ptxas. TinyCU
 targets PTX ISA 7.0, which any CUDA 11+ driver accepts, so the same `.ptx` loads on Colab's T4
 through `cuModuleLoadDataEx` without an offline ptxas step.
+
+## Phase 5 — running on the GPU
+
+**CUDA execution model.** A kernel launch creates a *grid* of *blocks*, and each block has up to
+1024 threads. A block runs on one SM and never migrates. Its threads are split into *warps* of 32
+that execute in SIMT lockstep, one instruction for all active lanes. Blocks are independent and
+can run in any order, which is why there is no grid-wide barrier inside a kernel. TinyCU's
+`blockIdx.x * blockDim.x + threadIdx.x` plus the `i < n` guard is the standard 1-D mapping.
+
+**Memory hierarchy.** From fastest to slowest:
+- registers: per thread, about 255 per thread at most;
+- shared memory: per block, 48 KB by default here, on-chip, about register latency when there
+  are no bank conflicts;
+- L1 and L2 caches;
+- global memory (DRAM): hundreds of cycles.
+
+The per-thread register count chosen by ptxas limits *occupancy*, the number of warps resident
+per SM. `ptxas -v` shows it.
+
+**Coalescing.** When the 32 threads of a warp access consecutive 4-byte words, the hardware
+merges them into a few 128-byte transactions. vecadd and saxpy are perfectly coalesced, so they
+run at DRAM bandwidth, and TinyCU and NVRTC time the same on them. Strided access, such as
+transpose writes, splits into many transactions.
+
+**Why `__syncthreads()` must not sit in divergent code.** `bar.sync` waits until all threads of
+the block arrive. If only some threads reach it, the result is a deadlock or undefined behavior,
+depending on the architecture. TinyCU's interpreter reports this as `barrier_divergence`.
+
+**Driver API vs Runtime API.** The Runtime API (`cudaMalloc`, `<<<>>>`) is what nvcc-compiled
+programs use. It manages contexts implicitly and embeds fatbinaries. The Driver API (`cu*`) is
+lower level:
+- explicit contexts (`cuDevicePrimaryCtxRetain`);
+- modules loaded at run time from PTX or cubin (`cuModuleLoadDataEx`);
+- launches with an argument-pointer array (`cuLaunchKernel`).
+
+A compiler that produces PTX at run time needs the Driver API, so `tinycu-run` uses it. CuPy's
+`RawModule` uses the same mechanism.
+
+**Module loading and JIT.** `cuModuleLoadDataEx` on PTX runs the driver's built-in ptxas for the
+current GPU. TinyCU emits `.target sm_75`, and the local RTX 3050 is sm_86, so the driver
+JIT-compiles it forward without problems: PTX is forward-compatible, cubin is not. The JIT
+error log buffer turns an invalid image into a readable message
+(`Can't load this binary kind, as it's not recognized`).
+
+**What ptxas does.** It turns virtual registers into physical ones (spilling to local memory if
+needed), schedules instructions to hide latency, does if-conversion (the saxpy guard became
+`@P0 EXIT`), folds constants and addresses (`IMAD.WIDE` with `c[0x0][...]` parameter operands),
+and encodes SASS into the cubin.
+
+**Bit-exact across four implementations.** NumPy, the interpreter, TinyCU-on-GPU and
+nvcc-on-GPU (NVRTC with `-fmad=false`) agree bit-for-bit on all 108 cases, floats included. That
+takes the same operation order everywhere and no FMA anywhere:
+- `.rn` in TinyCU's PTX;
+- `-fmad=false` for NVRTC;
+- `-ffp-contract=off` in the interpreter;
+- NumPy reproducing the reduction tree and matmul accumulation order.

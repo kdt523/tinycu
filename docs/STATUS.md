@@ -7,14 +7,15 @@
 | 02 | sema | done | v0.2 |
 | 03 | ir-interp | done | v0.3 |
 | 04 | ptx-backend | done | v0.4 |
-| 05 | gpu-runtime | todo | |
+| 05 | gpu-runtime | done | v0.5 |
 | 06 | optimizer | todo | |
 | 07 | verification | todo | |
 | 08 | release | todo | |
 
 ## Pending kd (needs the owner)
 - [x] GitHub repo `kdt523/tinycu` created, first push done, CI green (2026-10-11)
-- [ ] Colab GPU runs (phases 5 and 7)
+- [ ] Colab T4 run of `notebooks/run_on_colab.ipynb` (phase 5; results commit as `results/*_colab.md`)
+- [ ] Colab GPU fuzz run (phase 7)
 - [ ] Codecov token (phase 8)
 - [ ] Demo recording (phase 8)
 - [ ] Pin repo on GitHub profile (phase 8)
@@ -45,3 +46,9 @@
   `tools/ptx_check.sh`, `tools/ptx_validate.sh` (CI job), `python -m tcharness.ptxstats`.
   ptxas sm_75 accepts every valid test program at -O0 and -O1. Tests: 14 PTX unit tests,
   15 PTX golden snapshots, new golden `imm_operands.tc`.
+- **Phase 5**: 22-kernel suite (`tests/kernels/*.{tc,cu,json}`), NumPy references, `tcharness.suite`
+  (interp / gpu via CuPy / nvrtc twin / tinycu-run), C++ Driver API runner `tinycu-run` with JIT
+  error log and cuEvent timing, `tcharness.bench`, Colab notebook.
+  **A local GPU exists** (RTX 3050 Laptop, sm_86, via WSL2): 108/108 cases bit-exact on
+  numpy == interp == gpu == nvrtc (results/kernel_suite.md); 130 GPU pytest + 153 non-GPU pytest.
+  Pending kd: running the notebook on Colab's T4 (sm_75).

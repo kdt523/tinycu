@@ -1,0 +1,21 @@
+{
+  "kernel": "grid_stride_loop",
+  "grid": "8",
+  "block": 128,
+  "n": [
+    1,
+    255,
+    256,
+    1000,
+    100003
+  ],
+  "params": [
+    "rand_f32",
+    "zeros",
+    "scalar:0.5",
+    "n"
+  ],
+  "outputs": [
+    "y"
+  ]
+}

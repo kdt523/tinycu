@@ -1,0 +1,7 @@
+// x *= s (in place)
+kernel scale(float* x, float s, int n) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
+    x[i] = x[i] * s;
+  }
+}

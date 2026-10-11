@@ -1,0 +1,22 @@
+// CUDA twin of tests/kernels/branchy.tc
+extern "C" __global__ void branchy(const int* x, int* o, int n) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
+    int v = x[i];
+    if (v < 0) {
+      if (v < -25) {
+        o[i] = -2;
+      } else {
+        o[i] = -1;
+      }
+    } else if (v == 0) {
+      o[i] = 0;
+    } else {
+      if ((v % 2 == 0 && v > 10) || v == 7) {
+        o[i] = 2;
+      } else {
+        o[i] = 1;
+      }
+    }
+  }
+}

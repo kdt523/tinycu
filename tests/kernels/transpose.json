@@ -1,0 +1,20 @@
+{
+  "kernel": "transpose",
+  "grid": "ceil(n*13/256)",
+  "block": 256,
+  "n": [
+    1,
+    19,
+    256,
+    1000
+  ],
+  "params": [
+    "rand_f32[n*13]",
+    "zeros[n*13]",
+    "n",
+    "scalar:13"
+  ],
+  "outputs": [
+    "out"
+  ]
+}

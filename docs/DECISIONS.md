@@ -46,6 +46,16 @@ One line per decision with the reason. Newest at the bottom of each section.
 - **Never rewrite `!(a < b)` into `a >= b` for floats** (they differ on NaN); fine for ints. Needs a comment in the code and a test.
 - **No `x * 0 → 0` / `x - x → 0` for floats**: NaN, inf and −0 break these identities.
 
+## Runtime & kernel suite
+- **Driver API for the C++ runner** (not the Runtime API): PTX produced at run time must be loaded as a module; the JIT log is available via `CU_JIT_ERROR_LOG_BUFFER`.
+- **One JSON format for interpreter input/output and the GPU runner**: every execution path can be diffed with the same code.
+- **CUDA twins use `unsigned` for wrap-around arithmetic**: signed overflow is UB in CUDA C++ but defined (wrapping) in TinyCU.
+- **NVRTC twins compiled with `-fmad=false` for correctness tests, default flags (`-O3`, FMA) for the benchmark**: correctness needs bit-exactness; the benchmark compares against what users would actually get.
+- **Kernel inputs are seeded from (kernel name, n)**: every run of the suite is reproducible.
+- **NumPy references reproduce the kernel's operation order** (reduction tree, matmul k-loop, dot chunks): float results can be compared bit-exactly instead of with a tolerance.
+- **GPU work runs locally on the RTX 3050 Laptop GPU (sm_86, WSL2 GPU passthrough) as well as on Colab**: the plan assumed no local GPU; the Colab notebook still exists for the T4 (sm_75) target.
+- **Benchmark summaries are computed from the measured numbers, never written in advance**: the first local run showed TinyCU's naive matmul *faster* than NVRTC's, the opposite of the expectation; it stays reported as measured until explained from the SASS.
+
 ## Verification
 - **The interpreter is the oracle and reports every UB as an error**: random tests must be UB-free, and a UB report means a generator bug, not a miscompile.
 - **Interpreter run-time errors exit with code 4, still print the JSON, and include `error.kind`**: the fuzz harness sorts failures (oob, div0, div_overflow, bad_cvt, barrier_divergence, step_limit, uninit_shared, bad_args) without parsing text.

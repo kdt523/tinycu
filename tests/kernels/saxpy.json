@@ -1,0 +1,21 @@
+{
+  "kernel": "saxpy",
+  "grid": "ceil(n/256)",
+  "block": 256,
+  "n": [
+    1,
+    255,
+    256,
+    1000,
+    100003
+  ],
+  "params": [
+    "scalar:2.5",
+    "rand_f32",
+    "rand_f32",
+    "n"
+  ],
+  "outputs": [
+    "y"
+  ]
+}

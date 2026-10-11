@@ -12,6 +12,15 @@ kernel saxpy(float a, float* x, float* y, int n) {
 }
 ```
 
+## Quickstart (WSL2 Ubuntu or Linux)
+```sh
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build && ctest --test-dir build
+python3 -m venv .venv && . .venv/bin/activate && pip install -e "harness[gpu]"
+build/tinycu tests/kernels/saxpy.tc -o saxpy.ptx            # compile
+python -m tcharness.suite --gpu                             # every kernel: numpy/interp/GPU/nvcc twin
+```
+No local GPU? Open `notebooks/run_on_colab.ipynb` in Colab (T4) and **Run all**.
+
 ## Exit codes
 | Code | Meaning |
 |---|---|

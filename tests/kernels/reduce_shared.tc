@@ -1,0 +1,21 @@
+// Block-level tree reduction in shared memory (blockDim.x must be 256).
+kernel reduce_shared(float* in, float* out, int n) {
+  shared float buf[256];
+  int tid = threadIdx.x;
+  int i = blockIdx.x * blockDim.x + tid;
+  float v = 0.0;
+  if (i < n) {
+    v = in[i];
+  }
+  buf[tid] = v;
+  __syncthreads();
+  for (int s = blockDim.x / 2; s > 0; s /= 2) {
+    if (tid < s) {
+      buf[tid] += buf[tid + s];
+    }
+    __syncthreads();
+  }
+  if (tid == 0) {
+    out[blockIdx.x] = buf[0];
+  }
+}

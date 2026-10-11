@@ -1,0 +1,20 @@
+{
+  "kernel": "break_continue",
+  "grid": "ceil(n/256)",
+  "block": 256,
+  "n": [
+    1,
+    255,
+    256,
+    1000,
+    100003
+  ],
+  "params": [
+    "rand_i32(0,60)",
+    "zeros",
+    "n"
+  ],
+  "outputs": [
+    "o"
+  ]
+}
