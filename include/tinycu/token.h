@@ -48,6 +48,7 @@ enum class TokKind {
   RBracket,
   Comma,
   Semi,
+  Dot, ///< only directly after threadIdx/blockIdx/blockDim/gridDim
   // operators
   Plus,
   Minus,
@@ -97,6 +98,7 @@ private:
   char peek(size_t ahead = 0) const {
     return pos_ + ahead < src_.size() ? src_[pos_ + ahead] : '\0';
   }
+  Token lexToken();
   void advance();
   bool skipTriviaAndComments();
   Token lexNumber(SourceLoc start, size_t begin);
@@ -105,6 +107,7 @@ private:
   std::string_view src_;
   DiagEngine &diag_;
   size_t pos_ = 0;
+  TokKind lastKind_ = TokKind::Eof; ///< kind of the previously returned token
   uint32_t line_ = 1;
   uint32_t col_ = 1;
 };

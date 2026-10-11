@@ -164,3 +164,14 @@ TEST(Lexer, NulAndHighBytes) {
   EXPECT_EQ(r.errors, 2u);
   EXPECT_EQ(r.toks.back().kind, K::Eof);
 }
+
+TEST(Lexer, DotOnlyAfterBuiltinVariables) {
+  EXPECT_EQ(
+      kinds("threadIdx.x blockIdx . x"),
+      (std::vector<K>{K::KwThreadIdx, K::Dot, K::Ident, K::KwBlockIdx, K::Dot, K::Ident, K::Eof}));
+  // Elsewhere '.' is not a token, and float literals are unaffected.
+  Lexed r = lex("a.x 1.5");
+  EXPECT_EQ(r.errors, 1u);
+  EXPECT_EQ(r.toks[1].kind, K::Error);
+  EXPECT_EQ(r.toks[3].kind, K::FloatLit);
+}

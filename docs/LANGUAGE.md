@@ -31,7 +31,7 @@ unary          := ("-"|"!") unary | "(" type ")" unary | postfix
 postfix        := primary ["[" expr "]"]
 primary        := INTLIT | FLOATLIT | "true" | "false" | IDENT | builtin_var
                 | builtin_fn "(" [expr ("," expr)*] ")" | "(" expr ")"
-builtin_var    := "threadIdx" | "blockIdx" | "blockDim" | "gridDim"     // x-dimension only
+builtin_var    := ("threadIdx" | "blockIdx" | "blockDim" | "gridDim") ["." "x"]   // x only
 builtin_fn     := "min" | "max" | "abs" | "sqrt"
 ```
 
@@ -42,9 +42,11 @@ builtin_fn     := "min" | "max" | "abs" | "sqrt"
   unary `- !` and casts, indexing. All binary operators are left-associative.
 - **Dangling else** binds to the nearest `if`.
 - **Casts**: `(` followed by the keyword `int` or `float` starts a cast, e.g. `(float)i`.
-- **Builtin variables** are written without `.x` (`threadIdx`, not `threadIdx.x`) — only the
-  x dimension exists. They are keywords, as are `min max abs sqrt`, so none of these can be used
-  as variable names.
+- **Builtin variables** may be written CUDA-style (`threadIdx.x`) or plain (`threadIdx`); both
+  mean the same thing and `--emit=ast` always prints the plain form. Only the x dimension exists:
+  `.y` / `.z` give `error: only the x dimension is supported (TinyCU is 1-D)`, and any other
+  member (`.w`) is a syntax error. The builtin names, and `min max abs sqrt`, are keywords and
+  cannot be used as variable names.
 - `x++` / `x--` are statements (not expressions) and are desugared by the parser to
   `x += 1` / `x -= 1`.
 - Only one level of indexing: `a[i]` is valid, `a[i][j]` is not.
@@ -65,6 +67,8 @@ builtin_fn     := "min" | "max" | "abs" | "sqrt"
   The value is rounded to the nearest f32.
 - A letter or `_` directly after a number (`12abc`, `1.5x`) is an error.
 - Operators use maximal munch: `a+++b` lexes as `a ++ + b`.
+- `.` is a token only directly after one of the four builtin variable names (the `.x` member);
+  anywhere else it is an unexpected character. Float literals such as `1.5` are unaffected.
 
 ### Literal limits (known limitations)
 1. **`-2147483648` cannot be written as a literal.** `-` is a unary operator applied to the
@@ -93,7 +97,7 @@ error.
 ### vecadd
 ```c
 kernel vecadd(int* a, int* b, int* c, int n) {
-  int i = blockIdx * blockDim + threadIdx;
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) {
     c[i] = a[i] + b[i];
   }
@@ -103,7 +107,7 @@ kernel vecadd(int* a, int* b, int* c, int n) {
 ### saxpy
 ```c
 kernel saxpy(float a, float* x, float* y, int n) {
-  int i = blockIdx * blockDim + threadIdx;
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) {
     y[i] = a * x[i] + y[i];
   }
@@ -113,7 +117,7 @@ kernel saxpy(float a, float* x, float* y, int n) {
 ### relu
 ```c
 kernel relu(float* x, float* y, int n) {
-  int i = blockIdx * blockDim + threadIdx;
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) {
     float v = x[i];
     if (v < 0.0f) {
@@ -127,7 +131,7 @@ kernel relu(float* x, float* y, int n) {
 ### clamp
 ```c
 kernel clamp(float* x, float lo, float hi, int n) {
-  int i = blockIdx * blockDim + threadIdx;
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i >= n) {
     return;
   }
@@ -139,22 +143,22 @@ kernel clamp(float* x, float lo, float hi, int n) {
 ```c
 kernel reduce_shared(float* in, float* out, int n) {
   shared float buf[256];
-  int tid = threadIdx;
-  int i = blockIdx * blockDim + threadIdx;
+  int tid = threadIdx.x;
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
   float v = 0.0f;
   if (i < n) {
     v = in[i];
   }
   buf[tid] = v;
   __syncthreads();
-  for (int s = blockDim / 2; s > 0; s /= 2) {
+  for (int s = blockDim.x / 2; s > 0; s /= 2) {
     if (tid < s) {
       buf[tid] += buf[tid + s];
     }
     __syncthreads();
   }
   if (tid == 0) {
-    out[blockIdx] = buf[0];
+    out[blockIdx.x] = buf[0];
   }
 }
 ```

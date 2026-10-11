@@ -367,6 +367,8 @@ StmtPtr Parser::parseAssign() {
   }
   std::string name(tok().text);
   bump();
+  if (isa<BuiltinVarExpr>(target.get()) && !parseBuiltinMember())
+    return nullptr;
   if (at(TokKind::LBracket)) {
     SourceLoc lb = tok().loc;
     bump();
@@ -690,6 +692,8 @@ ExprPtr Parser::parsePrimary() {
   }
   if (isBuiltinVar(t.kind, bv)) {
     bump();
+    if (!parseBuiltinMember())
+      return nullptr;
     return std::make_unique<BuiltinVarExpr>(loc, bv);
   }
   if (isBuiltinFn(t.kind, bf)) {
@@ -715,6 +719,23 @@ ExprPtr Parser::parsePrimary() {
   }
   errorHere(std::string("expected expression, found ") + tokKindName(t.kind));
   return nullptr;
+}
+
+// builtin_var := ("threadIdx" | "blockIdx" | "blockDim" | "gridDim") ["." "x"]
+// Both spellings produce the same BuiltinVarExpr; `.y` / `.z` get a dedicated error.
+bool Parser::parseBuiltinMember() {
+  if (!consume(TokKind::Dot))
+    return true;
+  if (at(TokKind::Ident) && tok().text == "x") {
+    bump();
+    return true;
+  }
+  if (at(TokKind::Ident) && (tok().text == "y" || tok().text == "z")) {
+    errorHere("only the x dimension is supported (TinyCU is 1-D)");
+    return false;
+  }
+  errorHere(std::string("expected 'x' after '.', found ") + tokKindName(tok().kind));
+  return false;
 }
 
 std::unique_ptr<Program> parseSource(std::string_view src, DiagEngine &diag) {

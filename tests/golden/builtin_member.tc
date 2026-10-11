@@ -1,0 +1,8 @@
+// threadIdx.x and threadIdx are the same builtin; --emit=ast prints the plain form.
+kernel builtin_member(int* o, int n) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  int j = blockIdx * blockDim + threadIdx;
+  if (i < n && i == j) {
+    o[i] = gridDim.x + gridDim + blockDim .x;
+  }
+}

@@ -56,6 +56,7 @@ private:
   ExprPtr parseUnary();
   ExprPtr parsePostfix();
   ExprPtr parsePrimary();
+  bool parseBuiltinMember(); ///< optional `.x` after a builtin variable
 
   struct DepthGuard;
   bool enterNested();

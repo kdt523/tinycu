@@ -1,0 +1,5 @@
+// EXPECT: 3:21: only the x dimension is supported (TinyCU is 1-D)
+kernel k(int* o) {
+  int i = threadIdx.y;
+  o[0] = i;
+}

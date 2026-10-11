@@ -135,3 +135,14 @@ TEST(Parser, DeepNestingDoesNotCrash) {
 TEST(Parser, ChainedIndexIsError) {
   EXPECT_GT(errorsFor("kernel k(int* a) { a[0] = a[a[0]][1]; }"), 0u);
 }
+
+TEST(Parser, BuiltinMemberX) {
+  EXPECT_EQ(exprOf("blockIdx.x*blockDim.x+threadIdx.x"), "(+ (* blockIdx blockDim) threadIdx)");
+  EXPECT_EQ(exprOf("gridDim.x"), "gridDim");
+}
+
+TEST(Parser, BuiltinMemberYZRejected) {
+  EXPECT_EQ(errorsFor("kernel k(int* o) { o[0] = threadIdx.y; }"), 1u);
+  EXPECT_EQ(errorsFor("kernel k(int* o) { o[0] = gridDim.z; }"), 1u);
+  EXPECT_EQ(errorsFor("kernel k(int* o) { o[0] = blockDim.w; }"), 1u);
+}

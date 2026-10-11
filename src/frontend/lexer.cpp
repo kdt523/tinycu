@@ -79,6 +79,8 @@ const char *tokKindName(TokKind k) {
     return "','";
   case TokKind::Semi:
     return "';'";
+  case TokKind::Dot:
+    return "'.'";
   case TokKind::Plus:
     return "'+'";
   case TokKind::Minus:
@@ -282,7 +284,7 @@ Token Lexer::lexNumber(SourceLoc start, size_t begin) {
   return t;
 }
 
-Token Lexer::next() {
+Token Lexer::lexToken() {
   if (!skipTriviaAndComments()) {
     Token t;
     t.kind = TokKind::Eof;
@@ -332,6 +334,12 @@ Token Lexer::next() {
     return make(TokKind::Comma, begin, start);
   case ';':
     return make(TokKind::Semi, begin, start);
+  case '.':
+    // `.` is only a token in the member access `threadIdx.x` (and the other builtins).
+    if (lastKind_ == TokKind::KwThreadIdx || lastKind_ == TokKind::KwBlockIdx ||
+        lastKind_ == TokKind::KwBlockDim || lastKind_ == TokKind::KwGridDim)
+      return make(TokKind::Dot, begin, start);
+    break;
   case '%':
     return make(TokKind::Percent, begin, start);
   case '+':
@@ -379,6 +387,12 @@ Token Lexer::next() {
                                              "0123456789abcdef"[uc & 15];
   diag_.error(start, "unexpected character '" + shown + "'");
   return make(TokKind::Error, begin, start);
+}
+
+Token Lexer::next() {
+  Token t = lexToken();
+  lastKind_ = t.kind;
+  return t;
 }
 
 std::vector<Token> Lexer::lexAll() {

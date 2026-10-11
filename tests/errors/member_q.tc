@@ -1,0 +1,5 @@
+// EXPECT: 3:20: expected 'x' after '.', found identifier
+kernel k(int* o) {
+  int i = blockDim.q;
+  o[0] = i;
+}
