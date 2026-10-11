@@ -85,8 +85,7 @@ def ptxas_stats(ptx_path: Path, cubin: Path, sm: str) -> dict[str, dict[str, int
 def run_tool(args: list[str]) -> str:
     r = subprocess.run(args, capture_output=True, text=True)
     if r.returncode != 0:
-        raise RuntimeError(f"{' '.join(args)} failed ({r.returncode}):
-{r.stderr}")
+        raise RuntimeError(f"{' '.join(args)} failed ({r.returncode}):\n{r.stderr}")
     return r.stdout
 
 
