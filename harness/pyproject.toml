@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tcharness"
+version = "0.0.1"
+description = "TinyCU test harness: run, diff, fuzz, reduce, metrics"
+requires-python = ">=3.10"
+dependencies = ["numpy", "pytest"]
+
+[project.optional-dependencies]
+fuzz = ["hypothesis"]
+gpu = ["cupy-cuda12x"]
+
+[tool.setuptools.packages.find]
+include = ["tcharness*"]

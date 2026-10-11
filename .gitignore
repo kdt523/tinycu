@@ -1,0 +1,9 @@
+build*/
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+*.cubin
+fuzz_out/
+compile_commands.json
+.vscode/
