@@ -122,8 +122,15 @@ std::string resultJson(const Function &fn, const LaunchConfig &cfg, const Result
   doc["grid"] = cfg.grid;
   doc["block"] = cfg.block;
   doc["status"] = r.ok ? "ok" : "error";
-  if (!r.ok)
-    doc["error"] = r.error;
+  if (!r.ok) {
+    json e;
+    e["kind"] = r.errorKind;
+    e["block"] = r.errorBlock >= 0 ? json(r.errorBlock) : json(nullptr);
+    e["thread"] = r.errorThread >= 0 ? json(r.errorThread) : json(nullptr);
+    e["msg"] = r.errorMsg;
+    e["text"] = r.error;
+    doc["error"] = std::move(e);
+  }
   doc["steps"] = r.steps;
   json params = json::array();
   for (size_t i = 0; i < args.size(); ++i) {

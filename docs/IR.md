@@ -116,7 +116,9 @@ JSON. Exit code 4 means the kernel hit a runtime error; the JSON is still printe
 `"status": "error"`.
 
 - **Memory:** each pointer parameter is its own buffer, and each shared array is a fresh
-  zero-filled buffer per block. Accesses are bounds-checked. *Computing* an out-of-range address
+  buffer per block. The interpreter tracks a *written* bit for every shared element, and a load
+  of an element no thread of the current block has stored yet is an error (`uninit_shared`),
+  because the GPU does not zero shared memory. Accesses are bounds-checked. *Computing* an out-of-range address
   is allowed; *accessing* it is an error naming the array, index, size, block and thread.
 - **Execution:** blocks run one after another. Without a barrier, each thread runs to completion
   in order. With `barrier`, the threads of a block run in lock-step phases: each runs until the
@@ -136,7 +138,32 @@ JSON. Exit code 4 means the kernel hit a runtime error; the JSON is still printe
 Float arguments and results move as raw bit patterns (`"bits"`), so NaN, -0 and subnormals
 survive the JSON round trip and comparisons can be bit-exact.
 
-### Note for the PTX backend (phase 4)
-Because of the C semantics above, IR `cmp.ne` on f32 must become PTX **`setp.neu.f32`** (the
-unordered compare: true if either operand is NaN). The other five compares map to the ordered
-`setp.{eq,lt,le,gt,ge}.f32`.
+On a run-time error the result JSON has `"status": "error"` and a machine-readable error
+object, so the fuzz harness can classify failures without parsing text:
+
+```json
+"error": {"kind": "oob", "block": 3, "thread": 7,
+          "msg": "out-of-bounds load from 'x' at index 1000 (size 1000)",
+          "text": "runtime error in kernel 'k' (block 3, thread 7): out-of-bounds ..."}
+```
+
+| kind | meaning |
+|---|---|
+| `oob` | out-of-bounds (or invalid) load/store |
+| `div0` | integer division or remainder by zero |
+| `div_overflow` | `INT_MIN / -1` or `INT_MIN % -1` |
+| `bad_cvt` | `(int)` of NaN or of a value outside the int32 range |
+| `barrier_divergence` | threads of a block disagree about a `__syncthreads()` |
+| `step_limit` | a thread exceeded the step limit (possible infinite loop) |
+| `uninit_shared` | shared element read before any thread of the block wrote it |
+| `bad_args` | argument list does not match the kernel (`block`/`thread` are null) |
+
+### Float comparisons (C semantics, matched exactly by the PTX backend)
+| TinyCU | IR | PTX | NaN operand |
+|---|---|---|---|
+| `==` | `cmp.eq` | `setp.eq.f32` (ordered) | false |
+| `!=` | `cmp.ne` | `setp.neu.f32` (**unordered**) | true |
+| `<` `<=` `>` `>=` | `cmp.lt/le/gt/ge` | `setp.lt/le/gt/ge.f32` (ordered) | false |
+
+Consequence for the optimizer: `!(a < b)` is **not** `a >= b` for floats (they differ when an
+operand is NaN), so that rewrite is only legal for ints.

@@ -288,4 +288,18 @@ def test_runtime_error_reported():
     src = "kernel k(int* o, int n) { o[threadIdx.x] = 1; }"
     r = interp(src, [np.zeros(4, np.int32), 0], 1, 8)
     assert not r.ok
+    assert r.error_kind == "oob"
     assert "out-of-bounds store to 'o' at index 4" in r.error
+
+
+def test_uninitialized_shared_read_is_an_error():
+    src = """kernel k(int* o) {
+  shared int s[8];
+  if (threadIdx.x < 4) { s[threadIdx.x] = 1; }
+  __syncthreads();
+  o[threadIdx.x] = s[threadIdx.x];
+}"""
+    r = interp(src, [np.zeros(8, np.int32)], 1, 8)
+    assert not r.ok
+    assert r.error_kind == "uninit_shared"
+    assert "shared 's' at index 4" in r.error

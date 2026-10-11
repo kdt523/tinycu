@@ -88,9 +88,14 @@ public:
     bool lockstep = fn_.usesBarrier();
     for (uint32_t b = 0; b < cfg_.grid && result_.ok; ++b) {
       ctaid_ = b;
+      // Shared memory is NOT zeroed on the GPU: track which elements this block has written
+      // and make reading an unwritten one an error (the data value itself is irrelevant).
       shared_.assign(fn_.shared.size(), {});
-      for (size_t s = 0; s < fn_.shared.size(); ++s)
+      sharedWritten_.assign(fn_.shared.size(), {});
+      for (size_t s = 0; s < fn_.shared.size(); ++s) {
         shared_[s].assign(static_cast<size_t>(fn_.shared[s].count), 0u);
+        sharedWritten_[s].assign(static_cast<size_t>(fn_.shared[s].count), false);
+      }
       lockstep ? runBlockLockstep() : runBlockSequential();
     }
     return result_;
@@ -100,14 +105,20 @@ private:
   Result fail(const std::string &msg) {
     result_.ok = false;
     result_.error = msg;
+    result_.errorKind = "bad_args";
+    result_.errorMsg = msg;
     return result_;
   }
 
-  bool error(const Thread &t, const std::string &msg) {
+  bool error(const Thread &t, const char *kind, const std::string &msg) {
     if (result_.ok) {
       result_.ok = false;
       result_.error = "runtime error in kernel '" + fn_.name + "' (block " +
                       std::to_string(ctaid_) + ", thread " + std::to_string(t.tid) + "): " + msg;
+      result_.errorKind = kind;
+      result_.errorBlock = ctaid_;
+      result_.errorThread = t.tid;
+      result_.errorMsg = msg;
     }
     return false;
   }
@@ -146,8 +157,9 @@ private:
         } else {
           const Inst *at = &t.bb->insts[t.ip];
           if (barrier && at != barrier) {
-            error(t, "barrier divergence: threads " + std::to_string(waiting->tid) + " and " +
-                         std::to_string(t.tid) + " wait at different __syncthreads()");
+            error(t, "barrier_divergence",
+                  "barrier divergence: threads " + std::to_string(waiting->tid) + " and " +
+                      std::to_string(t.tid) + " wait at different __syncthreads()");
             return;
           }
           barrier = at;
@@ -157,9 +169,10 @@ private:
       if (!waiting)
         return; // all threads finished
       if (done) {
-        error(*waiting, "barrier divergence: thread " + std::to_string(waiting->tid) +
-                            " waits at __syncthreads() but thread " + std::to_string(done->tid) +
-                            " already exited");
+        error(*waiting, "barrier_divergence",
+              "barrier divergence: thread " + std::to_string(waiting->tid) +
+                  " waits at __syncthreads() but thread " + std::to_string(done->tid) +
+                  " already exited");
         return;
       }
       for (Thread &t : threads) { // release the barrier
@@ -193,35 +206,51 @@ private:
     int64_t off =
         static_cast<int64_t>(addr & ((1ull << kBufShift) - 1)) - static_cast<int64_t>(kOffsetBias);
     std::vector<uint32_t> *buf = nullptr;
+    std::vector<bool> *written = nullptr;
     std::string name;
     if (space == MemSpace::Shared && bufId >= kSharedBufBase &&
         bufId - kSharedBufBase < shared_.size()) {
       buf = &shared_[bufId - kSharedBufBase];
+      written = &sharedWritten_[bufId - kSharedBufBase];
       name = fn_.shared[bufId - kSharedBufBase].name;
     } else if (space == MemSpace::Global && bufId >= 1 && bufId <= args_.size() &&
                args_[bufId - 1].type == IRType::PtrGlobal) {
       buf = &args_[bufId - 1].data;
       name = fn_.params[bufId - 1].name;
     } else {
-      error(t, std::string("invalid ") + (isStore ? "store" : "load") + " address");
+      error(t, "oob", std::string("invalid ") + (isStore ? "store" : "load") + " address");
       return nullptr;
     }
     int64_t index = off >= 0 ? off / 4 : -((-off + 3) / 4);
     if (off % 4 != 0 || off < 0 || static_cast<uint64_t>(index) >= buf->size()) {
-      error(t, std::string("out-of-bounds ") + (isStore ? "store to '" : "load from '") + name +
-                   "' at index " + std::to_string(index) + " (size " + std::to_string(buf->size()) +
-                   ")");
+      error(t, "oob",
+            std::string("out-of-bounds ") + (isStore ? "store to '" : "load from '") + name +
+                "' at index " + std::to_string(index) + " (size " + std::to_string(buf->size()) +
+                ")");
       return nullptr;
     }
-    return &(*buf)[static_cast<size_t>(index)];
+    size_t i = static_cast<size_t>(index);
+    if (written) {
+      if (isStore) {
+        (*written)[i] = true;
+      } else if (!(*written)[i]) {
+        error(t, "uninit_shared",
+              "load from shared '" + name + "' at index " + std::to_string(index) +
+                  " before any thread of this block wrote it (shared memory is not "
+                  "zero-initialized on the GPU)");
+        return nullptr;
+      }
+    }
+    return &(*buf)[i];
   }
 
   // Runs `t` until it exits (Done), reaches a barrier (AtBarrier) or fails (returns false).
   bool execute(Thread &t) {
     for (;;) {
       if (++t.steps > cfg_.stepLimit)
-        return error(t, "step limit of " + std::to_string(cfg_.stepLimit) +
-                            " instructions exceeded (possible infinite loop)");
+        return error(t, "step_limit",
+                     "step limit of " + std::to_string(cfg_.stepLimit) +
+                         " instructions exceeded (possible infinite loop)");
       ++result_.steps;
       const Inst &in = t.bb->insts[t.ip];
       uint64_t a = in.a.isNone() ? 0 : get(t, in.a);
@@ -247,9 +276,9 @@ private:
         } else {
           int32_t x = asI32(a), y = asI32(b);
           if (y == 0)
-            return error(t, "integer division by zero");
+            return error(t, "div0", "integer division by zero");
           if (x == INT_MIN && y == -1)
-            return error(t, "integer overflow in division (INT_MIN / -1)");
+            return error(t, "div_overflow", "integer overflow in division (INT_MIN / -1)");
           r = static_cast<uint32_t>(in.op == Op::Div ? x / y : x % y);
         }
         break;
@@ -289,7 +318,7 @@ private:
       case Op::CvtI32F32: {
         float x = asF32(a);
         if (std::isnan(x) || !(x >= -2147483648.0f && x < 2147483648.0f))
-          return error(t, "float-to-int conversion of an out-of-range value");
+          return error(t, "bad_cvt", "float-to-int conversion of an out-of-range value");
         r = static_cast<uint32_t>(static_cast<int32_t>(std::trunc(x)));
         break;
       }
@@ -374,6 +403,7 @@ private:
   LaunchConfig cfg_;
   std::vector<ArgValue> &args_;
   std::vector<std::vector<uint32_t>> shared_;
+  std::vector<std::vector<bool>> sharedWritten_;
   uint32_t ctaid_ = 0;
   Result result_;
 };

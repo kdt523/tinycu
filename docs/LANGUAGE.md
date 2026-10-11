@@ -214,6 +214,12 @@ kernel reduce_shared(float* in, float* out, int n) {
 11. **Casts** `(int)e` / `(float)e` take int or float. `(int)` truncates toward zero. Casting a
     `bool`, or casting to a pointer type, is an error.
 12. Kernel names must be unique within a file.
+13. **Initial values.** Scalar locals declared without an initializer are **zero-initialized**.
+    This is defined behavior, and the PTX backend emits the zero too; sema still warns when such
+    a variable is read before being assigned. **Shared arrays are *not* initialized** (on the GPU
+    shared memory starts with garbage). Reading a shared element before any thread of the block
+    has written it is undefined behavior, which the interpreter reports as a run-time error
+    (`uninit_shared`).
 
 ### 5.3 Typed AST
 After sema, `--emit=ast` annotates every operator node with its type and shows the implicit

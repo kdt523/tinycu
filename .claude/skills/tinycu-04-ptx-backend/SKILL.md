@@ -53,7 +53,8 @@ Map IR vreg → (class, index) with a simple table. Keep a comment `// %i` for n
 | div/rem i32 | `div.s32 / rem.s32` |
 | div f32 | `div.rn.f32` |
 | neg | `neg.s32 / neg.f32` |
-| cmp | `setp.{eq,ne,lt,le,gt,ge}.{s32,f32} %p, a, b` |
+| cmp i32 | `setp.{eq,ne,lt,le,gt,ge}.s32 %p, a, b` |
+| cmp f32 | `setp.eq.f32`, **`setp.neu.f32`** for `!=` (unordered: true on NaN, C semantics), `setp.{lt,le,gt,ge}.f32` (ordered) |
 | and/or/not i1 | `and.pred / or.pred / not.pred` |
 | cvt | `cvt.rn.f32.s32` ; `cvt.rzi.s32.f32` |
 | min/max/abs | `min.s32 max.s32 abs.s32 / min.f32 max.f32 abs.f32` |

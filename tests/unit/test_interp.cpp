@@ -352,3 +352,67 @@ TEST(InterpErrors, WrongArgumentCount) {
   ASSERT_FALSE(r.ok);
   EXPECT_NE(r.error.find("expects 4 arguments"), std::string::npos);
 }
+
+TEST(InterpErrors, ErrorKindsAreMachineReadable) {
+  std::vector<ArgValue> a = {IP({0}), I(0)};
+  EXPECT_EQ(launch("kernel k(int* o, int z) { o[0] = 1 / z; }", a, 1, 1).errorKind, "div0");
+  EXPECT_EQ(launch("kernel k(int* o, int z) { o[z + 1] = 1; }", a, 1, 1).errorKind, "oob");
+  a = {IP({0}), I(-1)};
+  EXPECT_EQ(launch("kernel k(int* o, int m) { o[0] = (-2147483647 - 1) / m; }", a, 1, 1).errorKind,
+            "div_overflow");
+  a = {IP({0}), F(1e10f)};
+  EXPECT_EQ(launch("kernel k(int* o, float f) { o[0] = (int)f; }", a, 1, 1).errorKind, "bad_cvt");
+  a = {IP({0})};
+  auto r = launch("kernel k(int* o) { while (true) { } }", a, 1, 1);
+  EXPECT_EQ(r.errorKind, "step_limit");
+  EXPECT_EQ(r.errorBlock, 0);
+  EXPECT_EQ(r.errorThread, 0);
+  r = launch("kernel k(int* o) { if (threadIdx.x > 0) { return; } __syncthreads(); }", a, 1, 2);
+  EXPECT_EQ(r.errorKind, "barrier_divergence");
+  r = launch(kVecAdd, a, 1, 1);
+  EXPECT_EQ(r.errorKind, "bad_args");
+  EXPECT_EQ(r.errorThread, -1);
+}
+
+TEST(InterpErrors, SharedReadBeforeWriteIsAnError) {
+  // The GPU does not zero shared memory, so this read would see garbage.
+  std::vector<ArgValue> args = {IP({0, 0, 0, 0})};
+  auto r = launch(R"(kernel k(int* o) {
+    shared int s[4];
+    if (threadIdx.x != 2) { s[threadIdx.x] = 7; }
+    __syncthreads();
+    o[threadIdx.x] = s[threadIdx.x]; })",
+                  args, 1, 4);
+  ASSERT_FALSE(r.ok);
+  EXPECT_EQ(r.errorKind, "uninit_shared");
+  EXPECT_EQ(r.errorThread, 2);
+  EXPECT_NE(r.error.find("shared 's' at index 2"), std::string::npos) << r.error;
+}
+
+TEST(InterpErrors, SharedWrittenBitsResetPerBlock) {
+  // Block 0 writes s[0]; block 1 must not see that as initialized.
+  std::vector<ArgValue> args = {IP({0, 0})};
+  auto r = launch(R"(kernel k(int* o) {
+    shared int s[1];
+    if (blockIdx.x == 0) { s[0] = 5; }
+    o[blockIdx.x] = s[0]; })",
+                  args, 2, 1);
+  ASSERT_FALSE(r.ok);
+  EXPECT_EQ(r.errorKind, "uninit_shared");
+  EXPECT_EQ(r.errorBlock, 1);
+}
+
+TEST(Interp, FloatNotEqualIsTrueForNaN) {
+  // C semantics (and PTX setp.neu.f32): NaN != NaN, NaN != 1.0 are true; == is false.
+  std::vector<ArgValue> args = {IP({0, 0, 0, 0}), F(0.0f)};
+  auto r = launch(R"(kernel k(int* o, float z) {
+    float nan = z / z;
+    if (nan != 1.0) { o[0] = 1; }
+    if (1.0 != nan) { o[1] = 1; }
+    if (nan == 1.0) { o[2] = 1; }
+    if (!(nan < 1.0) && !(nan >= 1.0)) { o[3] = 1; } })",
+                  args, 1, 1);
+  ASSERT_TRUE(r.ok) << r.error;
+  // o[3]: !(a < b) is NOT a >= b for floats when NaN is involved.
+  EXPECT_EQ(ints(args[0]), (std::vector<int32_t>{1, 1, 0, 1}));
+}

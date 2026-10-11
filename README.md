@@ -12,6 +12,21 @@ kernel saxpy(float a, float* x, float* y, int n) {
 }
 ```
 
+## Exit codes
+| Code | Meaning |
+|---|---|
+| 0 | success |
+| 1 | compile error (diagnostics on stderr) |
+| 2 | usage error (bad command line, unreadable file, bad args JSON) |
+| 3 | internal compiler error (e.g. IR verifier failure) |
+| 4 | kernel run-time error in the interpreter (`--interp`); the result JSON is still printed |
+
+## Dependencies
+- C++17 compiler, CMake ≥ 3.20, Ninja, Python ≥ 3.10 (NumPy, pytest)
+- Fetched automatically by CMake: [nlohmann/json](https://github.com/nlohmann/json) 3.11.3
+  (single-header release tarball, pinned by SHA256) and GoogleTest 1.14.0 (tests only)
+- Optional: CUDA toolkit (`ptxas` for validation; GPU runner)
+
 > Work in progress — see [docs/STATUS.md](docs/STATUS.md).
 
 ```sh

@@ -196,8 +196,13 @@ int interpret(const Options &opts, const tinycu::ir::Module &m) {
   const tinycu::ir::Function *fn = nullptr;
   if (opts.kernel.empty()) {
     if (m.functions.size() != 1) {
-      std::fprintf(stderr, "tinycu: error: the file has several kernels; choose one with "
-                           "--kernel\n");
+      std::string names;
+      for (const auto &f : m.functions)
+        names += (names.empty() ? "" : ", ") + f->name;
+      std::fprintf(stderr,
+                   "tinycu: error: '%s' contains %zu kernels (%s); choose one with --kernel "
+                   "<name>\n",
+                   opts.input.c_str(), m.functions.size(), names.c_str());
       return kUsageError;
     }
     fn = m.functions[0].get();

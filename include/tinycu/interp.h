@@ -3,7 +3,8 @@
 // IR interpreter: the reference oracle. Emulates a 1-D grid of 1-D thread blocks on the CPU
 // with exact TinyCU semantics (i32 wraps, f32 without FMA contraction) and turns every
 // undefined behaviour (out-of-bounds access, division by zero, INT_MIN / -1, bad float->int
-// conversion, barrier divergence, endless loop) into a reported error.
+// conversion, barrier divergence, reading shared memory no thread has written, endless loop)
+// into a reported error.
 
 #include "tinycu/ir.h"
 
@@ -30,8 +31,14 @@ struct LaunchConfig {
 
 struct Result {
   bool ok = true;
-  std::string error;
-  uint64_t steps = 0; ///< instructions executed over all threads
+  std::string error; ///< full human-readable message
+  /// Machine-readable class: oob | div0 | div_overflow | bad_cvt | barrier_divergence |
+  /// step_limit | uninit_shared | bad_args
+  std::string errorKind;
+  int64_t errorBlock = -1; ///< -1 when not tied to a thread
+  int64_t errorThread = -1;
+  std::string errorMsg; ///< message without the kernel/block/thread prefix
+  uint64_t steps = 0;   ///< instructions executed over all threads
 };
 
 /// Runs `fn` over the grid. `args` must match fn.params in number and type.

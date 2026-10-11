@@ -74,7 +74,9 @@ def _arg_json(a) -> dict:
 @dataclass
 class InterpResult:
     ok: bool
-    error: str
+    error: str  # human-readable message ("" when ok)
+    error_kind: str  # oob | div0 | div_overflow | bad_cvt | barrier_divergence | step_limit |
+    #                  uninit_shared | bad_args ("" when ok)
     outputs: list  # per parameter: np.ndarray for pointers, scalar otherwise
     steps: int
 
@@ -106,4 +108,6 @@ def interp(src: str | Path, args: list, grid: int, block: int, kernel: str | Non
             outputs.append(np.uint32(p["bits"]).view(np.float32))
         else:
             outputs.append(np.int32(p["value"]))
-    return InterpResult(doc["status"] == "ok", doc.get("error", ""), outputs, doc["steps"])
+    err = doc.get("error") or {}
+    return InterpResult(doc["status"] == "ok", err.get("text", ""), err.get("kind", ""), outputs,
+                        doc["steps"])
