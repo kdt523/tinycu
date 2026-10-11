@@ -1,24 +1,24 @@
 (kernel loops (params (int* out) (int n))
   (block
-    (vardecl int i (+ (* blockIdx blockDim) threadIdx))
-    (if (< i n)
+    (vardecl int i (+:int (*:int blockIdx blockDim) threadIdx))
+    (if (<:bool i n)
       (block
         (vardecl int sum 0)
-        (for (vardecl int k 0) (< k 10) (assign += k 1)
+        (for (vardecl int k 0) (<:bool k 10) (assign += k 1)
           (block
-            (if (== k 3)
+            (if (==:bool k 3)
               (block
                 (continue)))
-            (if (> k 7)
+            (if (>:bool k 7)
               (block
                 (break)))
             (assign += sum k)))
         (vardecl int j i)
-        (while (&& (> j 0) (< sum 1000))
+        (while (&&:bool (>:bool j 0) (<:bool sum 1000))
           (block
-            (assign = sum (+ sum (% j 7)))
+            (assign = sum (+:int sum (%:int j 7)))
             (assign -= j 1)))
         (for () () ()
           (block
             (break)))
-        (assign = (index out i) sum)))))
+        (assign = (index:int out i) sum)))))

@@ -1,0 +1,4 @@
+// EXPECT: 3:7: local arrays are not supported; use a 'shared' array
+kernel k(int* o) {
+  int a[4];
+}

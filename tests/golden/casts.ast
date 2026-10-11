@@ -1,9 +1,9 @@
 (kernel casts (params (float* f) (int* o) (int n))
   (block
     (vardecl int i threadIdx)
-    (if (< i n)
+    (if (<:bool i n)
       (block
-        (vardecl float x (* (cast float i) 0.5f))
-        (vardecl int t (cast int (index f i)))
-        (assign = (index o i) (+ t (cast int (* x 2.0))))
-        (assign = (index f i) (+ (+ (cast float (- t)) 1.5e3) 2e-3))))))
+        (vardecl float x (*:float (cast:float i) 0.5f))
+        (vardecl int t (cast:int (index:float f i)))
+        (assign = (index:int o i) (+:int t (cast:int (*:float x 2.0))))
+        (assign = (index:float f i) (+:float (+:float (cast:float (-:int t)) 1.5e3) 2e-3))))))

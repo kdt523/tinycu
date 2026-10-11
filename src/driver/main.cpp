@@ -6,6 +6,7 @@
 // Exit codes: 0 ok, 1 compile error, 2 usage error, 3 internal error.
 
 #include "tinycu/parser.h"
+#include "tinycu/sema.h"
 #include "tinycu/version.h"
 
 #include <cstdio>
@@ -150,6 +151,9 @@ int compile(const Options &opts) {
   }
   tinycu::DiagEngine diag(opts.input, source);
   std::unique_ptr<tinycu::Program> prog = tinycu::parseSource(source, diag);
+  // Sema runs only on a syntactically valid program.
+  if (!diag.hasErrors())
+    tinycu::Sema(diag).run(*prog);
   diag.print(std::cerr);
   if (diag.hasErrors())
     return kCompileError;

@@ -1,0 +1,4 @@
+// EXPECT: 3:3: 'break' statement not in a loop
+kernel k(int* o) {
+  break;
+}

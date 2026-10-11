@@ -1,5 +1,6 @@
-// Robustness: the lexer + parser must never crash, hang, or trip ASan/UBSan on garbage.
+// Robustness: the lexer, parser and sema must never crash, hang, or trip ASan/UBSan on garbage.
 #include "tinycu/parser.h"
+#include "tinycu/sema.h"
 
 #include <gtest/gtest.h>
 
@@ -17,8 +18,11 @@ void parseNoCrash(const std::string &src) {
   DiagEngine diag("fuzz.tc", src);
   auto prog = parseSource(src, diag);
   ASSERT_NE(prog, nullptr);
-  if (!diag.hasErrors())
+  // Sema runs only on syntactically valid programs (same as the driver).
+  if (!diag.hasErrors()) {
+    Sema(diag).run(*prog);
     (void)printAST(*prog);
+  }
   std::ostringstream os;
   diag.print(os);
 }
@@ -92,4 +96,30 @@ TEST(FrontendFuzz, SeedProgramParses) {
   DiagEngine diag("seed.tc", src);
   parseSource(src, diag);
   EXPECT_FALSE(diag.hasErrors());
+}
+
+TEST(FrontendFuzz, TokenSubstitutionsThroughSema) {
+  // Replace a couple of tokens with plausible ones: most results still parse, so this
+  // drives sema through many slightly-wrong programs.
+  std::string src = kSeedProgram;
+  DiagEngine d("seed.tc", src);
+  Lexer lx(src, d);
+  std::vector<Token> toks = lx.lexAll();
+  toks.pop_back();
+  const char *vocab[] = {"a",     "x", "y",     "n",       "i",         "k",  "buf", "int",
+                         "float", "1", "2.0",   "true",    "threadIdx", "+",  "%",   "<",
+                         "&&",    "!", "(int)", "(float)", "sqrt",      "min"};
+  const size_t nvocab = sizeof(vocab) / sizeof(vocab[0]);
+  std::mt19937 rng(99);
+  for (int iter = 0; iter < 1000; ++iter) {
+    std::vector<std::string> t;
+    for (const Token &tk : toks)
+      t.emplace_back(tk.text);
+    for (int k = 0; k < 2; ++k)
+      t[rng() % t.size()] = vocab[rng() % nvocab];
+    std::string s;
+    for (const std::string &w : t)
+      s += w + ' ';
+    parseNoCrash(s);
+  }
 }

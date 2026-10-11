@@ -1,0 +1,5 @@
+// EXPECT-WARN: 3:7: declaration of 'n' shadows an outer variable
+kernel k(int* o, int n) {
+  int n = 2;
+  o[0] = n;
+}

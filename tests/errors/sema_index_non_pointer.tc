@@ -1,0 +1,5 @@
+// EXPECT: 3:11: subscripted value of type 'int' is not a pointer or shared array
+kernel k(int* o, int n) {
+  int y = n[0];
+  o[0] = y;
+}

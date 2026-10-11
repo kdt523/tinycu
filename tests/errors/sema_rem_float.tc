@@ -1,0 +1,5 @@
+// EXPECT: 3:15: '%' requires int operands
+kernel k(float* o, float f) {
+  float x = f % 2.0;
+  o[0] = x;
+}

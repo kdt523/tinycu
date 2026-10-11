@@ -4,7 +4,7 @@
 |---|---|---|---|
 | 00 | setup | done | v0.0 |
 | 01 | frontend | done | v0.1 |
-| 02 | sema | todo | |
+| 02 | sema | done | v0.2 |
 | 03 | ir-interp | todo | |
 | 04 | ptx-backend | todo | |
 | 05 | gpu-runtime | todo | |
@@ -29,3 +29,8 @@
 - **Phase 1**: lexer, recursive-descent parser with panic-mode recovery, AST + `--emit=ast`.
   Tests: 19 lexer, 21 parser, 4 robustness-fuzz unit tests (3,000 random inputs under ASan/UBSan),
   13 golden programs, 18 syntax-error cases.
+- **Phase 1 follow-up**: optional CUDA-style `.x` on builtin variables (`threadIdx.x`).
+- **Phase 2**: types (interned), scopes/symbols with per-kernel ids, implicit int→float casts,
+  lvalue/pointer/shared-array rules, typed `--emit=ast`. Tests: 15 sema unit tests, sema fuzz
+  (1,000 token substitutions), 29 sema error cases, 6 warning cases, all 14 golden programs
+  re-snapshotted with types.

@@ -1,0 +1,4 @@
+// EXPECT: 3:10: use of undeclared identifier 'y'
+kernel k(int* o) {
+  o[0] = y;
+}

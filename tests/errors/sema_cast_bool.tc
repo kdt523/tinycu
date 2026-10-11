@@ -1,0 +1,5 @@
+// EXPECT: 3:11: cannot cast 'bool' to 'int'
+kernel k(int* o, int n) {
+  int x = (int)(n < 1);
+  o[0] = x;
+}

@@ -1,0 +1,7 @@
+// EXPECT: 4:16: total shared memory of kernel 'k' exceeds 48 KB (53248 bytes)
+kernel k(float* o) {
+  shared float a[12288];
+  shared float b[1024];
+  a[0] = 1.0;
+  b[0] = 1.0;
+}

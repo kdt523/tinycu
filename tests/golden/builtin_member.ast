@@ -1,7 +1,7 @@
 (kernel builtin_member (params (int* o) (int n))
   (block
-    (vardecl int i (+ (* blockIdx blockDim) threadIdx))
-    (vardecl int j (+ (* blockIdx blockDim) threadIdx))
-    (if (&& (< i n) (== i j))
+    (vardecl int i (+:int (*:int blockIdx blockDim) threadIdx))
+    (vardecl int j (+:int (*:int blockIdx blockDim) threadIdx))
+    (if (&&:bool (<:bool i n) (==:bool i j))
       (block
-        (assign = (index o i) (+ (+ gridDim gridDim) blockDim))))))
+        (assign = (index:int o i) (+:int (+:int gridDim gridDim) blockDim))))))

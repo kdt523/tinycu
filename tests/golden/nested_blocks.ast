@@ -4,12 +4,12 @@
     (block
       (vardecl int a 1)
       (block
-        (vardecl int b (+ a 2))
-        (if (< i n)
+        (vardecl int b (+:int a 2))
+        (if (<:bool i n)
           (block
-            (assign = (index o i) b))
+            (assign = (index:int o i) b))
           (block
             (block)))))
-    (if (|| true false)
+    (if (||:bool true false)
       (block
         (return)))))

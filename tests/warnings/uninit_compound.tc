@@ -1,0 +1,6 @@
+// EXPECT-WARN: 4:3: variable 's' is used uninitialized
+kernel k(int* o) {
+  int s;
+  s += 1;
+  o[0] = s;
+}

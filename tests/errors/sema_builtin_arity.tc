@@ -1,0 +1,4 @@
+// EXPECT: 3:10: 'min' expects 2 arguments, got 1
+kernel k(int* o) {
+  o[0] = min(1);
+}

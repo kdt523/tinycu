@@ -9,6 +9,7 @@
 //         (assign = (index y i) (+ (* a (index x i)) (index y i))))))
 
 #include "tinycu/ast.h"
+#include "tinycu/types.h"
 
 #include <string>
 
@@ -103,6 +104,16 @@ class Printer {
 public:
   std::string out;
 
+  // Operator head, with `:type` appended once sema has typed the expression.
+  void head(const char *op, const Expr &e) {
+    out += '(';
+    out += op;
+    if (e.type) {
+      out += ':';
+      out += e.type->str();
+    }
+  }
+
   void expr(const Expr &e) {
     switch (e.kind()) {
     case ExprKind::IntLit:
@@ -122,7 +133,8 @@ public:
       break;
     case ExprKind::Index: {
       auto *ix = cast<IndexExpr>(&e);
-      out += "(index ";
+      head("index", e);
+      out += ' ';
       expr(*ix->base);
       out += ' ';
       expr(*ix->index);
@@ -131,15 +143,15 @@ public:
     }
     case ExprKind::Unary: {
       auto *u = cast<UnaryExpr>(&e);
-      out += u->op == UnaryOp::Neg ? "(- " : "(! ";
+      head(u->op == UnaryOp::Neg ? "-" : "!", e);
+      out += ' ';
       expr(*u->operand);
       out += ')';
       break;
     }
     case ExprKind::Binary: {
       auto *b = cast<BinaryExpr>(&e);
-      out += '(';
-      out += binaryOpSpelling(b->op);
+      head(binaryOpSpelling(b->op), e);
       out += ' ';
       expr(*b->lhs);
       out += ' ';
@@ -149,14 +161,20 @@ public:
     }
     case ExprKind::Cast: {
       auto *c = cast<CastExpr>(&e);
-      out += "(cast " + c->to.str() + ' ';
+      // Untyped: (cast int x). Typed: (cast:int x) - implicit casts appear only when typed.
+      if (c->type)
+        head("cast", e);
+      else
+        out += "(cast " + c->to.str();
+      out += ' ';
       expr(*c->operand);
       out += ')';
       break;
     }
     case ExprKind::Call: {
       auto *c = cast<CallExpr>(&e);
-      out += "(call ";
+      head("call", e);
+      out += ' ';
       out += builtinFnName(c->fn);
       for (const ExprPtr &a : c->args) {
         out += ' ';

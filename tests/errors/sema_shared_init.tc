@@ -1,0 +1,4 @@
+// EXPECT: 3:21: shared array cannot have an initializer
+kernel k(int* o) {
+  shared int b[4] = 1;
+}

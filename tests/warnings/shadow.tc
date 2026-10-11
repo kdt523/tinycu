@@ -1,0 +1,6 @@
+// EXPECT-WARN: 4:9: declaration of 'x' shadows an outer variable
+kernel k(int* o) {
+  int x = 1;
+  { int x = 2; o[1] = x; }
+  o[0] = x;
+}

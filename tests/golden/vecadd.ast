@@ -1,6 +1,6 @@
 (kernel vecadd (params (int* a) (int* b) (int* c) (int n))
   (block
-    (vardecl int i (+ (* blockIdx blockDim) threadIdx))
-    (if (< i n)
+    (vardecl int i (+:int (*:int blockIdx blockDim) threadIdx))
+    (if (<:bool i n)
       (block
-        (assign = (index c i) (+ (index a i) (index b i)))))))
+        (assign = (index:int c i) (+:int (index:int a i) (index:int b i)))))))

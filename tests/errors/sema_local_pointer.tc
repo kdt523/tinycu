@@ -1,0 +1,4 @@
+// EXPECT: 3:3: local pointer variables are not supported
+kernel k(int* o) {
+  int* p;
+}

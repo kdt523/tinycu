@@ -1,0 +1,5 @@
+// EXPECT: 3:13: cannot assign a value of type 'bool' to 'int'
+kernel k(int* o, int n) {
+  int x = n < 1;
+  o[0] = x;
+}

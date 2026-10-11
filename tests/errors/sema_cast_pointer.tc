@@ -1,0 +1,4 @@
+// EXPECT: 3:11: cannot cast to pointer type 'int*'
+kernel k(int* o, int n) {
+  int x = (int*)n;
+}

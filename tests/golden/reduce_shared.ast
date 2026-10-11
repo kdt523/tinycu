@@ -2,19 +2,19 @@
   (block
     (vardecl shared float buf[256])
     (vardecl int tid threadIdx)
-    (vardecl int i (+ (* blockIdx blockDim) threadIdx))
+    (vardecl int i (+:int (*:int blockIdx blockDim) threadIdx))
     (vardecl float v 0.0f)
-    (if (< i n)
+    (if (<:bool i n)
       (block
-        (assign = v (index in i))))
-    (assign = (index buf tid) v)
+        (assign = v (index:float in i))))
+    (assign = (index:float buf tid) v)
     (syncthreads)
-    (for (vardecl int s (/ blockDim 2)) (> s 0) (assign /= s 2)
+    (for (vardecl int s (/:int blockDim 2)) (>:bool s 0) (assign /= s 2)
       (block
-        (if (< tid s)
+        (if (<:bool tid s)
           (block
-            (assign += (index buf tid) (index buf (+ tid s)))))
+            (assign += (index:float buf tid) (index:float buf (+:int tid s)))))
         (syncthreads)))
-    (if (== tid 0)
+    (if (==:bool tid 0)
       (block
-        (assign = (index out blockIdx) (index buf 0))))))
+        (assign = (index:float out blockIdx) (index:float buf 0))))))

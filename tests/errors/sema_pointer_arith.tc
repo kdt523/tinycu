@@ -1,0 +1,5 @@
+// EXPECT: 3:11: pointer 'o' can only be indexed
+kernel k(int* o) {
+  int x = o + 1;
+  o[0] = x;
+}

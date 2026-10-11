@@ -1,6 +1,6 @@
 (kernel saxpy (params (float a) (float* x) (float* y) (int n))
   (block
-    (vardecl int i (+ (* blockIdx blockDim) threadIdx))
-    (if (< i n)
+    (vardecl int i (+:int (*:int blockIdx blockDim) threadIdx))
+    (if (<:bool i n)
       (block
-        (assign = (index y i) (+ (* a (index x i)) (index y i)))))))
+        (assign = (index:float y i) (+:float (*:float a (index:float x i)) (index:float y i)))))))

@@ -1,0 +1,6 @@
+// EXPECT: 4:5: shared arrays must be declared at kernel top level
+kernel k(int n) {
+  if (n > 0) {
+    shared int buf[4];
+  }
+}

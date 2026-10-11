@@ -164,4 +164,61 @@ kernel reduce_shared(float* in, float* out, int n) {
 ```
 
 ## 5. Semantics
-_Filled in by phase 2 (types, scopes, conversions, lvalues)._
+
+### 5.1 Types
+| Type | Meaning |
+|---|---|
+| `int` | 32-bit two's-complement integer; arithmetic **wraps** on overflow |
+| `float` | IEEE-754 binary32 |
+| `bool` | internal only: the result of comparisons and `&&`, `\|\|`, `!`. There is no `bool` keyword, so a bool can't be stored in a variable or array |
+| `int*`, `float*` | pointer to global memory; **kernel parameters only** |
+| `shared int[N]`, `shared float[N]` | per-block shared-memory array |
+| `void` | internal |
+
+### 5.2 Rules
+1. **Scopes.** Every block, every `if`/loop body, and every `for` statement (for its initializer)
+   opens a scope. Kernel parameters are in the outermost scope; the kernel body is the next one.
+   Redeclaring a name in the same scope is an **error**. Shadowing an outer name, including a
+   parameter, is a **warning**. A variable's initializer is checked before the name is declared,
+   so in `int x = x + 1;` the `x` on the right is the outer `x`. The builtin variables are
+   read-only `int`s.
+2. **Arithmetic** `+ - * /`: int⊕int→int, float⊕float→float. For int⊕float, the int operand is
+   implicitly converted to float and sema inserts an implicit cast node. `%` requires two ints.
+   Unary `-` works on int or float.
+3. **Comparisons** `< <= > >= == !=` take int/float operands (mixed operands are promoted like
+   arithmetic) and produce `bool`. Bools can't be compared. `&&`, `||` and `!` require `bool`
+   operands. Conditions of `if`, `while` and `for` must be `bool`. There is **no C truthiness**:
+   `if (n)` is an error, so write `if (n != 0)`.
+4. **Assignment.** The target must be a scalar variable or an element `a[i]`. int→float is
+   implicit. float→int is an error ("implicit conversion from float to int loses precision; use
+   (int)"). `x op= e` is checked as `x = x op e`, so `int x; x += 1.5;` is an error.
+5. **Indexing.** The base must be a pointer parameter or a shared array, and the index must be
+   `int`. The result has the element type.
+6. **Pointers** can only be indexed. They can't be assigned, compared, copied, cast, or used in
+   arithmetic, and local pointer variables don't exist. A shared array name likewise can only be
+   indexed.
+7. **Builtins:** `min(x,y)` and `max(x,y)` take (int,int) or (float,float), and mixed arguments
+   are promoted to float. `abs(x)` takes int or float and returns the same type. `sqrt(x)` takes
+   float; an int argument is implicitly converted.
+8. **`break` / `continue`** are only allowed inside a `for` or `while`. `__syncthreads()` is
+   allowed anywhere. **Divergence risk:** calling it where only some threads of a block reach it
+   (for example inside `if (threadIdx.x < 16)`) is undefined behavior on the GPU, and the
+   interpreter reports it as an error at run time. Sema doesn't try to prove convergence.
+9. **Shared arrays** must be declared at kernel top level (not inside a block, branch, loop, or
+   `for` initializer). They need a constant size 1 ≤ N ≤ 12288 (48 KB of 4-byte elements) and
+   can't have an initializer. The kernel's total shared memory must not exceed 48 KB. Local
+   (non-shared) arrays aren't supported.
+10. **Warnings:** unused local variable; variable used before any assignment. The uninitialized
+    check is deliberately simple: it uses straight-line source order, and any earlier assignment,
+    even in a branch, counts as initialization.
+11. **Casts** `(int)e` / `(float)e` take int or float. `(int)` truncates toward zero. Casting a
+    `bool`, or casting to a pointer type, is an error.
+12. Kernel names must be unique within a file.
+
+### 5.3 Typed AST
+After sema, `--emit=ast` annotates every operator node with its type and shows the implicit
+conversions, e.g. `(+:float (cast:float i) x)`. Leaves (names, literals) are printed bare. An
+explicit cast and an implicit one print the same way (`cast:float`).
+
+Errors stop compilation (exit code 1). Warnings are printed but don't affect the exit code. Sema
+runs only if parsing succeeded.

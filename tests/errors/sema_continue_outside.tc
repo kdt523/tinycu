@@ -1,0 +1,6 @@
+// EXPECT: 4:5: 'continue' statement not in a loop
+kernel k(int* o, int n) {
+  if (n > 0) {
+    continue;
+  }
+}

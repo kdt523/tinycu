@@ -1,0 +1,6 @@
+// EXPECT: 3:7: operand of '!' must be bool, found 'int'
+kernel k(int* o, int n) {
+  if (!n) {
+    o[0] = 1;
+  }
+}

@@ -1,0 +1,4 @@
+// EXPECT: 3:16: shared array size must be between 1 and 12288 elements (48 KB), got 12289
+kernel k(int* o) {
+  shared float buf[12289];
+}

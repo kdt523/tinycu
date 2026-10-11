@@ -1,0 +1,4 @@
+// EXPECT: 3:3: cannot assign to pointer 'o'
+kernel k(int* o, int* p) {
+  o = p;
+}

@@ -1,0 +1,4 @@
+// EXPECT: 3:3: cannot assign to read-only builtin variable 'threadIdx'
+kernel k(int* o) {
+  threadIdx = 3;
+}

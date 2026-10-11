@@ -1,0 +1,5 @@
+// EXPECT-WARN: 3:7: unused variable 'x'
+kernel k(int* o) {
+  int x = 1;
+  o[0] = 2;
+}

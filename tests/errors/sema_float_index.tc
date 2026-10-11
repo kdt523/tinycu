@@ -1,0 +1,4 @@
+// EXPECT: 3:5: array index must be int, found 'float'
+kernel k(int* o, float f) {
+  o[f] = 1;
+}

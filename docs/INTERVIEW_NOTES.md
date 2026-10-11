@@ -70,3 +70,34 @@ suppressed so one bad character doesn't cascade.
 **Robustness.** The parser has a nesting-depth limit (200), so `((((…` cannot overflow the
 stack. A unit test feeds 3,000 random byte strings and token shuffles through the frontend under
 ASan/UBSan.
+
+## Phase 2 — semantic analysis
+
+**Symbol tables and scope chains.** Each scope is a hash map name → Symbol, kept on a stack.
+Lookup walks from the innermost scope outward, which is the static scope chain. Declaring a name
+checks only the innermost map (redeclaration), but looks outward to warn about shadowing. Symbols
+get a per-kernel `id` that IR lowering reuses for register names, so the mapping from source
+variable to virtual register is stable and printable.
+
+**Static vs dynamic typing.** TinyCU is statically typed: every expression's type is known at
+compile time, and sema stores it in `Expr::type`. Later phases never inspect values to decide
+types. A GPU compiler needs this, because the same `+` becomes `add.s32` or `add.rn.f32` in PTX.
+
+**Coercion is explicit in the tree.** Sema inserts `CastExpr(implicit)` nodes for int→float, so
+lowering never has to re-derive conversions. That's one source of truth for the conversion rules.
+Only widening int→float is implicit. Narrowing float→int needs a cast, the "no silent precision
+loss" rule that C++ style guides enforce with `-Wconversion`.
+
+**Attribute grammars.** The type of an expression is a *synthesized* attribute, computed
+bottom-up from the children's types (`int + float → float`). The scope/environment is an
+*inherited* attribute, passed top-down (a block inherits its parent's symbols). The flags "inside
+a loop" (legal `break`) and "at kernel top level" (legal `shared`) are inherited attributes too.
+
+**Error type to avoid cascades.** An ill-typed sub-expression gets the special `<error>` type,
+and any operator with an `<error>` operand silently produces `<error>`. One mistake gives one
+diagnostic, the same technique clang uses.
+
+**Why specs matter for verification.** A compiler can only be "correct" relative to a spec.
+LANGUAGE.md §5 is that spec. Every rule has an error test, and the fuzzer (phase 7) generates
+only programs the spec says are valid and UB-free. Ambiguities found while writing sema (e.g. is
+`bool == bool` allowed? No) were settled in the spec first, then implemented.

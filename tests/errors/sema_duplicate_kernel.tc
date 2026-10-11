@@ -1,0 +1,5 @@
+// EXPECT: 4:1: redefinition of kernel 'k'
+kernel k(int* o) {
+}
+kernel k(int* o) {
+}

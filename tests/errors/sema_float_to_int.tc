@@ -1,0 +1,6 @@
+// EXPECT: 4:7: implicit conversion from float to int loses precision; use (int)
+kernel k(int* o, float f) {
+  int x = 0;
+  x = f;
+  o[0] = x;
+}

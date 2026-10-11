@@ -1,0 +1,6 @@
+// EXPECT: 3:7: pointer 'o' can only be indexed
+kernel k(int* o) {
+  if (o == o) {
+    o[0] = 1;
+  }
+}

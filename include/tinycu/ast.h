@@ -12,6 +12,19 @@ namespace tinycu {
 
 class Type; // semantic type, filled in by sema (types.h)
 
+/// A declared name, created by sema. `id` is unique within its kernel (params first, then
+/// locals in declaration order) and is reused by IR lowering for virtual register naming.
+struct Symbol {
+  enum class Kind { Param, Local, Shared };
+  std::string name;
+  const Type *type = nullptr;
+  Kind kind = Kind::Local;
+  SourceLoc loc;
+  unsigned id = 0;
+  bool used = false;     ///< read somewhere (for the unused-variable warning)
+  bool assigned = false; ///< has a value on the straight-line path seen so far
+};
+
 // ---------------------------------------------------------------------------
 // LLVM-style RTTI helpers: every node class has `static bool classof(const Base*)`.
 // ---------------------------------------------------------------------------
@@ -96,6 +109,7 @@ public:
   VarRefExpr(SourceLoc l, std::string n) : Expr(ExprKind::VarRef, l), name(std::move(n)) {}
   TINYCU_EXPR_CLASSOF(VarRef)
   std::string name;
+  Symbol *sym = nullptr; ///< set by sema
 };
 
 class IndexExpr : public Expr {
@@ -209,6 +223,7 @@ public:
   SourceLoc nameLoc;
   std::optional<int32_t> arraySize; ///< `[N]`
   ExprPtr init;                     ///< may be null
+  Symbol *sym = nullptr;            ///< set by sema
 };
 
 enum class AssignOp { Set, Add, Sub, Mul, Div };
@@ -292,6 +307,7 @@ struct Param {
   TypeSpec typeSpec;
   std::string name;
   SourceLoc loc;
+  Symbol *sym = nullptr; ///< set by sema
 };
 
 struct Kernel {
@@ -299,6 +315,7 @@ struct Kernel {
   SourceLoc loc;
   std::vector<Param> params;
   std::unique_ptr<BlockStmt> body;
+  std::vector<std::unique_ptr<Symbol>> symbols; ///< owned here, created by sema
 };
 
 struct Program {

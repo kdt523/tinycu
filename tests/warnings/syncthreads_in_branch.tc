@@ -1,0 +1,7 @@
+// EXPECT-WARN: 3:7: unused variable 't'
+kernel k(int* o, int n) {
+  int t = 0;
+  if (n > 0) {
+    __syncthreads();
+  }
+}

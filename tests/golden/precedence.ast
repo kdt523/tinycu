@@ -1,13 +1,13 @@
 (kernel precedence (params (int* out) (int a) (int b) (int c))
   (block
-    (vardecl int r (- (- a b) c))
-    (assign = r (+ a (* b c)))
-    (assign = r (* (- a) b))
-    (assign = r (% (/ (* (+ a b) c) 2) 5))
-    (if (|| (&& (! (< a b)) (<= b c)) (&& (== a c) (!= b c)))
+    (vardecl int r (-:int (-:int a b) c))
+    (assign = r (+:int a (*:int b c)))
+    (assign = r (*:int (-:int a) b))
+    (assign = r (%:int (/:int (*:int (+:int a b) c) 2) 5))
+    (if (||:bool (&&:bool (!:bool (<:bool a b)) (<=:bool b c)) (&&:bool (==:bool a c) (!=:bool b c)))
       (block
         (assign += r 1)))
-    (if (&& (> a b) (! (>= c a)))
+    (if (&&:bool (>:bool a b) (!:bool (>=:bool c a)))
       (block
         (assign -= r 1)))
-    (assign = (index out 0) r)))
+    (assign = (index:int out 0) r)))

@@ -1,0 +1,5 @@
+// EXPECT-WARN: 4:10: variable 'x' is used uninitialized
+kernel k(int* o) {
+  int x;
+  o[0] = x;
+}

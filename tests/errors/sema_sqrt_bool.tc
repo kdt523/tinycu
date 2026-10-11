@@ -1,0 +1,5 @@
+// EXPECT: 3:20: argument 1 of 'sqrt' must be int or float, found 'bool'
+kernel k(float* o, int n) {
+  float x = sqrt(n < 1);
+  o[0] = x;
+}
