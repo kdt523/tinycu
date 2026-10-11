@@ -27,9 +27,10 @@ bool CopyPropPass::run(Function &fn) {
       if (!in.dst.isVReg())
         continue;
       uint32_t d = in.dst.reg;
-      copyOf.erase(d);                                    // `d` has a new value
-      for (auto it = copyOf.begin(); it != copyOf.end();) // facts that read the old `d`
-        it = (it->second.isVReg() && it->second.reg == d) ? copyOf.erase(it) : std::next(it);
+      copyOf.erase(d);        // `d` has a new value
+      if (injectedBug() != 2) // INJECTED BUG 2 skips this invalidation
+        for (auto it = copyOf.begin(); it != copyOf.end();) // facts that read the old `d`
+          it = (it->second.isVReg() && it->second.reg == d) ? copyOf.erase(it) : std::next(it);
       if (in.op == Op::Mov && !(in.a.isVReg() && in.a.reg == d) && in.a.kind != Value::Kind::Shared)
         copyOf[d] = in.a;
     }

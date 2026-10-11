@@ -5,6 +5,13 @@
 
 namespace tinycu::opt {
 
+namespace {
+int gInjectedBug = 0;
+} // namespace
+
+void setInjectedBug(int id) { gInjectedBug = id; }
+int injectedBug() { return gInjectedBug; }
+
 const std::vector<std::string> &passNames() {
   static const std::vector<std::string> names = {"constfold", "copyprop", "simplifycfg", "dce"};
   return names;

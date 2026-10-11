@@ -60,7 +60,7 @@ def main(argv: list[str] | None = None) -> int:
             ours = cp.RawModule(path=str(ptx)).get_function(name)
             repeat = a.repeat if name != "matmul_naive" else max(3, a.repeat // 4)
             t_ours = median_ms(ours, spec.grid_for(n), spec.block, dev, repeat)
-        nvrtc = cp.RawKernel(spec.cu.read_text(), name)  # NVRTC defaults: -O3, fmad=true
+        nvrtc = suite.nvrtc_kernel(spec.cu.read_text(), name, ())  # NVRTC defaults: -O3, fmad=true
         t_nvrtc = median_ms(nvrtc, spec.grid_for(n), spec.block, dev, repeat)
         size = f"{n}x{n}" if name == "matmul_naive" else f"2^{int(np.log2(n))}"
         rows.append((name, size, t_ours, t_nvrtc))

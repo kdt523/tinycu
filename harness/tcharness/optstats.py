@@ -83,6 +83,9 @@ def main(argv: list[str] | None = None) -> int:
     if a.out:
         a.out.parent.mkdir(parents=True, exist_ok=True)
         a.out.write_text(text)
+        import json  # noqa: PLC0415
+        a.out.with_suffix(".json").write_text(
+            json.dumps({"kernels": len(rows0), "totals": tot}, indent=1) + "\n")
     return 0
 
 

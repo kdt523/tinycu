@@ -318,3 +318,55 @@ per thread, which means lower occupancy or spills. On GPUs this trade-off is cen
 why ptxas, not the front end, makes the final decisions. TinyCU's numbers show it: -O1 cut 4.2% of
 PTX instructions, but ptxas register counts didn't change at all, because ptxas had already done
 the equivalent cleanup.
+
+## Phase 7 — compiler verification
+
+**Ways to test a compiler:**
+- unit tests per component;
+- golden/regression snapshots;
+- *spec conformance suites* (e.g. the Khronos CTS);
+- **differential testing**: run the same program through independent implementations and
+  compare. Examples are Csmith/YARPGen for C and CUDAsmith for CUDA/OpenCL; TinyCU compares
+  interpreter, -O0, -O1, GPU and nvcc;
+- **EMI** (equivalence modulo inputs, Le et al.): mutate code that is dead for a given input;
+  the output must not change;
+- **metamorphic testing**: transformations with known effect on the result;
+- **test-case reduction**: delta debugging (Zeller), C-Reduce;
+- sanitizers (ASan/UBSan on the compiler itself);
+- coverage-guided fuzzing (libFuzzer/AFL on the parser);
+- performance regression tracking.
+
+**The UB problem.** In C, `INT_MAX + 1`, `x / 0`, out-of-bounds reads and uninitialized values have
+no defined result. Two correct compilers may disagree on them, so a random-testing tool that
+generates UB produces false alarms. Csmith avoids it with safe-math wrappers and analyses.
+TinyCU's generator is UB-free by construction (bounded divisors, clamped float→int, guarded
+indices, initialized variables), and the interpreter *checks* it on every run: UB in the
+reference is reported as a generator bug, never as a miscompile.
+
+**Delta debugging.** Repeatedly remove parts of a failing input and keep a removal if the failure
+persists (*interestingness test*, here "same failure label"). ddmin works on chunks of
+decreasing size. TinyCU reduces the AST rather than text, so every candidate is at least
+syntactically valid. A strictly decreasing measure prevents cycles: the reducer's first version
+flipped constants 0↔1 forever. Typical result: about 60 lines down to 7 in well under a second.
+
+**Pass bisection.** Once a program is known to miscompile at -O1, re-run it with each pass
+disabled. The pass whose removal fixes the output is the culprit. LLVM's `opt-bisect-limit` does
+the same at the granularity of individual transformations.
+
+**Validating the validator.** Four planted miscompiles (`--inject-bug`) measure what the fuzzer
+can find. The interesting result was bug 2 (copy propagation forgetting that a copy's source was
+redefined, the classic "swap problem"): 0 detections in 2,000 programs at first, because the
+generator never created the pattern. Adding variable swaps and a Csmith-style checksum of all
+variables fixed it. A planted bug that isn't found means a hole in the generator, not proof that
+the compiler is correct.
+
+**Harness bugs are real bugs.** The first GPU fuzz run reported 299/300 mismatches against nvcc.
+The cause was in the harness, not the compiler: twins were cached by kernel name, and every fuzz
+kernel is called `fuzz`. Then 77/1000 float programs disagreed. CuPy silently compiles NVRTC
+code with `-ftz=true`, flushing subnormals to zero. Both were found because paths C and D (TinyCU
+on the GPU) agreed with the interpreter while only E disagreed: having several independent paths
+localizes the fault.
+
+**Coverage as a signal, not a goal.** gcov line coverage (unit + golden + 1,000 fuzz programs)
+shows which compiler code is never exercised: uncovered lines in a pass usually mean the
+generator never produces that pattern.

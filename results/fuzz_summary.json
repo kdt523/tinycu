@@ -1,0 +1,17 @@
+{
+ "programs": 5000,
+ "seconds": 53.47,
+ "programs_per_min": 5610.6,
+ "jobs": 8,
+ "gpu": false,
+ "float_ratio": 0.3,
+ "seed_start": 0,
+ "extra": [],
+ "counts": {
+  "OK": 5000
+ },
+ "float_programs": 1500,
+ "failing_seeds": [],
+ "first_failure_index": null,
+ "first_failure_seed": null
+}

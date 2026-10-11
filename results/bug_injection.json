@@ -1,0 +1,227 @@
+{
+ "bugs": 4,
+ "detected": 4,
+ "programs_per_bug": 2000,
+ "avg_reduction": 0.767,
+ "avg_ast_reduction": 0.93,
+ "culprit_correct": 20,
+ "reduced_total": 20,
+ "rows": [
+  {
+   "bug": 1,
+   "pass": "constfold",
+   "description": "int add/sub/mul folded with saturation instead of wrap-around",
+   "programs": 2000,
+   "failing": 31,
+   "detected": true,
+   "first_detection": 100,
+   "labels": {
+    "MISMATCH(A-B)": 31,
+    "OK": 1969
+   },
+   "reduced": 5,
+   "avg_reduction": 0.739,
+   "avg_ast_reduction": 0.904,
+   "culprit_correct": 5,
+   "examples": [
+    {
+     "seed": 99,
+     "lines": "55 -> 9",
+     "culprits": [
+      "constfold"
+     ]
+    },
+    {
+     "seed": 132,
+     "lines": "35 -> 7",
+     "culprits": [
+      "constfold"
+     ]
+    },
+    {
+     "seed": 353,
+     "lines": "13 -> 8",
+     "culprits": [
+      "constfold"
+     ]
+    },
+    {
+     "seed": 416,
+     "lines": "36 -> 9",
+     "culprits": [
+      "constfold"
+     ]
+    },
+    {
+     "seed": 479,
+     "lines": "107 -> 8",
+     "culprits": [
+      "constfold"
+     ]
+    }
+   ]
+  },
+  {
+   "bug": 2,
+   "pass": "copyprop",
+   "description": "copy not invalidated when its source is redefined",
+   "programs": 2000,
+   "failing": 55,
+   "detected": true,
+   "first_detection": 6,
+   "labels": {
+    "MISMATCH(A-B)": 55,
+    "OK": 1945
+   },
+   "reduced": 5,
+   "avg_reduction": 0.64,
+   "avg_ast_reduction": 0.856,
+   "culprit_correct": 5,
+   "examples": [
+    {
+     "seed": 5,
+     "lines": "25 -> 14",
+     "culprits": [
+      "copyprop"
+     ]
+    },
+    {
+     "seed": 33,
+     "lines": "62 -> 14",
+     "culprits": [
+      "copyprop"
+     ]
+    },
+    {
+     "seed": 36,
+     "lines": "42 -> 14",
+     "culprits": [
+      "copyprop"
+     ]
+    },
+    {
+     "seed": 42,
+     "lines": "81 -> 13",
+     "culprits": [
+      "copyprop"
+     ]
+    },
+    {
+     "seed": 106,
+     "lines": "27 -> 14",
+     "culprits": [
+      "copyprop"
+     ]
+    }
+   ]
+  },
+  {
+   "bug": 3,
+   "pass": "dce",
+   "description": "stores of constant values deleted",
+   "programs": 2000,
+   "failing": 122,
+   "detected": true,
+   "first_detection": 10,
+   "labels": {
+    "MISMATCH(A-B)": 122,
+    "OK": 1878
+   },
+   "reduced": 5,
+   "avg_reduction": 0.84,
+   "avg_ast_reduction": 0.978,
+   "culprit_correct": 5,
+   "examples": [
+    {
+     "seed": 9,
+     "lines": "30 -> 8",
+     "culprits": [
+      "dce"
+     ]
+    },
+    {
+     "seed": 14,
+     "lines": "38 -> 7",
+     "culprits": [
+      "dce"
+     ]
+    },
+    {
+     "seed": 20,
+     "lines": "47 -> 7",
+     "culprits": [
+      "dce"
+     ]
+    },
+    {
+     "seed": 33,
+     "lines": "62 -> 7",
+     "culprits": [
+      "dce"
+     ]
+    },
+    {
+     "seed": 41,
+     "lines": "79 -> 7",
+     "culprits": [
+      "dce"
+     ]
+    }
+   ]
+  },
+  {
+   "bug": 4,
+   "pass": "simplifycfg",
+   "description": "condbr targets swapped while threading a jump",
+   "programs": 2000,
+   "failing": 1990,
+   "detected": true,
+   "first_detection": 1,
+   "labels": {
+    "MISMATCH(A-B)": 1990,
+    "OK": 10
+   },
+   "reduced": 5,
+   "avg_reduction": 0.851,
+   "avg_ast_reduction": 0.981,
+   "culprit_correct": 5,
+   "examples": [
+    {
+     "seed": 0,
+     "lines": "48 -> 7",
+     "culprits": [
+      "simplifycfg"
+     ]
+    },
+    {
+     "seed": 1,
+     "lines": "45 -> 7",
+     "culprits": [
+      "simplifycfg"
+     ]
+    },
+    {
+     "seed": 2,
+     "lines": "45 -> 8",
+     "culprits": [
+      "simplifycfg"
+     ]
+    },
+    {
+     "seed": 3,
+     "lines": "62 -> 7",
+     "culprits": [
+      "simplifycfg"
+     ]
+    },
+    {
+     "seed": 4,
+     "lines": "46 -> 7",
+     "culprits": [
+      "simplifycfg"
+     ]
+    }
+   ]
+  }
+ ]
+}

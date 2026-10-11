@@ -132,6 +132,11 @@ int parseArgs(const std::vector<std::string> &args, Options &opts) {
         opts.disabled.push_back(p);
     } else if (a == "--stats") {
       opts.stats = true;
+    } else if (startsWith(a, "--inject-bug=")) { // hidden: fuzzer validation (phase 7)
+      long id = 0;
+      if (!parseLong(a.substr(13), id) || id > 4)
+        return usageError("--inject-bug expects 1..4");
+      tinycu::opt::setInjectedBug(static_cast<int>(id));
     } else if (a == "--verify-each") {
       opts.verifyEach = true;
     } else if (a == "--no-verify-each") {

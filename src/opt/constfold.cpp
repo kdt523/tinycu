@@ -10,6 +10,7 @@
 #include "tinycu/semantics.h"
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <unordered_map>
 
@@ -155,8 +156,19 @@ bool ConstFoldPass::run(Function &fn) {
       if (isPureOp(in.op) && in.op != Op::Mov && in.a.isImm() && (in.b.isNone() || in.b.isImm())) {
         uint32_t out = 0;
         bool negativeSqrt = in.op == Op::Sqrt && std::signbit(in.a.f) && in.a.f != 0.0f;
-        if (!negativeSqrt && evalPure(in.op, in.type, immBits(in.a),
-                                      in.b.isNone() ? 0 : immBits(in.b), out) == EvalStatus::Ok) {
+        bool injected = false;
+        if (injectedBug() == 1 && in.type == IRType::I32 &&
+            (in.op == Op::Add || in.op == Op::Sub || in.op == Op::Mul)) {
+          // INJECTED BUG 1: "signed overflow without wrap" - saturates instead of wrapping.
+          int64_t x = in.a.i, y = in.b.i;
+          int64_t r = in.op == Op::Add ? x + y : in.op == Op::Sub ? x - y : x * y;
+          r = r > INT32_MAX ? INT32_MAX : r < INT32_MIN ? INT32_MIN : r;
+          out = static_cast<uint32_t>(static_cast<int32_t>(r));
+          injected = true;
+        }
+        if (!negativeSqrt &&
+            (injected || evalPure(in.op, in.type, immBits(in.a), in.b.isNone() ? 0 : immBits(in.b),
+                                  out) == EvalStatus::Ok)) {
           IRType rt = resultType(in);
           toMov(in, immOfType(rt, out), rt);
           changed = true;

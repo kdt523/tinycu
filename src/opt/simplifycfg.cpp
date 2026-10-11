@@ -8,6 +8,7 @@
 
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 
 namespace tinycu::opt {
 
@@ -55,6 +56,8 @@ bool SimplifyCfgPass::run(Function &fn) {
         BasicBlock *dest = finalTarget(*target, entry);
         if (dest != *target) {
           *target = dest;
+          if (injectedBug() == 4 && t.op == Op::CondBr) // INJECTED BUG 4: swapped targets
+            std::swap(t.t, t.f);
           again = true;
           ++changes;
         }

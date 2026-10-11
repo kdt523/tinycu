@@ -44,6 +44,15 @@ struct PipelineResult {
 
 PipelineResult runPipeline(ir::Module &m, const PipelineConfig &cfg);
 
+/// Deliberate miscompiles for validating the fuzzer (hidden flag --inject-bug=ID, phase 7):
+///   1 constfold folds int add/sub/mul with saturation instead of wrap-around
+///   2 copyprop forgets to invalidate a copy when its *source* is redefined
+///   3 dce deletes stores of constant values
+///   4 simplifycfg swaps the targets of a condbr while threading a jump
+/// 0 (default) = no bug.
+void setInjectedBug(int id);
+int injectedBug();
+
 /// Splits "a,b,c" (used for --passes and --disable-pass).
 std::vector<std::string> splitList(const std::string &s);
 

@@ -29,6 +29,11 @@ bool DcePass::run(Function &fn) {
       for (size_t i = 0; i < insts.size(); ++i) {
         const Inst &in = insts[i];
         bool selfMove = in.op == Op::Mov && in.a.isVReg() && in.dst == in.a;
+        if (injectedBug() == 3 && in.op == Op::Store && in.b.isImm()) { // INJECTED BUG 3
+          removed = true;
+          ++changes;
+          continue;
+        }
         bool dead = in.dst.isVReg() && !in.hasSideEffects() && uses[in.dst.reg] == 0;
         if (selfMove || dead) {
           removed = true;

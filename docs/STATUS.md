@@ -9,13 +9,13 @@
 | 04 | ptx-backend | done | v0.4 |
 | 05 | gpu-runtime | done | v0.5 |
 | 06 | optimizer | done | v0.6 |
-| 07 | verification | todo | |
+| 07 | verification | done | v0.7 |
 | 08 | release | todo | |
 
 ## Pending kd (needs the owner)
 - [x] GitHub repo `kdt523/tinycu` created, first push done, CI green (2026-10-11)
 - [x] Colab T4 run of `notebooks/run_on_colab.ipynb` (2026-10-11): Tesla T4, 108/108 cases bit-exact on numpy == interp == gpu == nvrtc; `results/*_colab.md`
-- [ ] Colab GPU fuzz run (phase 7)
+- [ ] Colab GPU fuzz run (phase 7): optional, cell 8b of the notebook; ≥1,000 programs already ran on the local RTX 3050 (results/fuzz_summary_gpu.json)
 - [ ] Codecov token (phase 8)
 - [ ] Demo recording (phase 8)
 - [ ] Pin repo on GitHub profile (phase 8)
@@ -57,3 +57,8 @@
   copyprop, dce, simplifycfg; IR text parser for tests; `tcharness.optstats` →
   `results/opt_impact.md`. Tests: 44 optimizer unit tests, 5 pass-dump goldens, all 22 kernels
   at -O1 == -O0 bit-exact on interp + GPU + NVRTC (108/108), ptxas accepts every program at -O1.
+- **Phase 7**: UB-free random kernel generator with CUDA twins (`tcharness.gen`), 5-path
+  differential oracle (`tcharness.diff`), parallel fuzzer (`tcharness.fuzz`), AST reducer + pass
+  bisection (`tcharness.reduce`), 4 planted bugs (`--inject-bug`) with `tcharness.bug_injection`,
+  coverage (`tools/coverage.sh`), metrics aggregator (`tcharness.metrics` → results/metrics.md),
+  CI fuzz-smoke job (300 programs), docs/VERIFICATION.md, docs/BUGLOG.md.

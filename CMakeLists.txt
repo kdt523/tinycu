@@ -16,6 +16,12 @@ set(TINYCU_BUILD_RUNTIME AUTO CACHE STRING "Build the CUDA Driver API runner (ON
 # Global flags: strict warnings, no FP contraction (interpreter must be bit-exact with GPU).
 add_compile_options(-Wall -Wextra -Werror -pedantic -ffp-contract=off)
 
+option(TINYCU_COVERAGE "Instrument for gcov line coverage (tools/coverage.sh)" OFF)
+if(TINYCU_COVERAGE)
+  add_compile_options(--coverage -O0 -g)
+  add_link_options(--coverage)
+endif()
+
 if(TINYCU_ENABLE_SANITIZERS)
   add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer
                       -fno-sanitize-recover=all)

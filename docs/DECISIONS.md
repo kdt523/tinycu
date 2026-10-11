@@ -67,7 +67,16 @@ One line per decision with the reason. Newest at the bottom of each section.
 - **The interpreter is the oracle and reports every UB as an error**: random tests must be UB-free, and a UB report means a generator bug, not a miscompile.
 - **Interpreter run-time errors exit with code 4, still print the JSON, and include `error.kind`**: the fuzz harness sorts failures (oob, div0, div_overflow, bad_cvt, barrier_divergence, step_limit, uninit_shared, bad_args) without parsing text.
 - **Float data crosses process boundaries as bit patterns**: comparisons are bit-exact; NaN/−0/subnormals survive JSON.
-- **Phase 7 float fuzz mode must produce NaNs from run-time values** (e.g. `sqrt(-x)`, `z / z` with `z = 0.0` loaded from memory): exercises the NaN comparison path end to end.
+- **Float fuzz mode produces NaN/inf from run-time values** (`sqrt` of negative inputs, division by zero inputs, ±1e30 / subnormal edge inputs): exercises the NaN comparison and min/max paths end to end.
+- **Any two NaNs compare equal in differential testing; everything else (including −0.0) is bit-exact**: NaN payloads are not part of TinyCU's semantics (x86: 0xFFC00000, NVIDIA: 0x7FFFFFFF).
+- **Generator is UB-free by construction and the interpreter proves it per run**: a UB report from the reference path is classified as a generator bug (`INTERP_ERROR`), never as a miscompile.
+- **CUDA twins wrap int `+ - *` through `unsigned` helpers and cast `threadIdx.x` to int**: signed overflow is UB in CUDA C++; CUDA's builtin indices are unsigned.
+- **Csmith-style checksum of all top-level variables as the final store**: any miscompiled value becomes observable (detection of planted bug 1 rose 9 → 31, bug 2 0 → 55 per 2,000 programs).
+- **Twins compiled with NVRTC directly (`cupy.cuda.nvrtc`), not `cupy.RawKernel`**: CuPy appends `-ftz=true` to every NVRTC compilation (found by fuzzing, BUGLOG H2).
+- **Reducer works on the generator AST, accepts only strictly smaller programs (AST size, |literals|), and keeps the same failure label**: valid candidates by construction, no cycles (BUGLOG H3).
+- **Reduction is reported in source lines (includes the fixed 7-line kernel wrapper) and in AST nodes**: both measured; lines are the primary number.
+- **Planted bugs live behind a hidden `--inject-bug=N` flag in the real passes**: validates the fuzzer against realistic defects without forking the compiler.
+- **GPU fuzzing runs CPU paths in a process pool and GPU paths in the main process**: one CUDA context; no fork-after-CUDA problems.
 
 ## Tooling
 - **nlohmann/json 3.11.3 via FetchContent from the single-header release tarball, pinned by SHA256**: no full-repo clone, reproducible builds.

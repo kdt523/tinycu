@@ -14,6 +14,8 @@ Spec format (tests/kernels/<name>.json):
 Parameter generators (one per kernel parameter, typed by the .tc signature):
   rand_f32[(lo,hi)] / rand_i32[(lo,hi)]   random array (default size n)
   zeros / iota                            array of the parameter's element type
+  fuzz_i32 / fuzz_f32                     random arrays rich in edge values (INT_MIN/MAX, 0, -0.0,
+                                          huge, subnormal), used by the fuzzer
   <gen>[expr]                             array size from an expression in n, e.g. zeros[n*n]
   scalar:V                                scalar of the parameter's type
   n                                       the problem size (int)
@@ -40,7 +42,7 @@ from tcharness.references import REFERENCES
 from tcharness.tinycu import REPO_ROOT, compile as tc_compile, interp as tc_interp
 
 KERNEL_DIR = REPO_ROOT / "tests" / "kernels"
-GEN_RE = re.compile(r"^(rand_f32|rand_i32|zeros|iota)(?:\(([^)]*)\))?(?:\[(.+)\])?$")
+GEN_RE = re.compile(r"^(rand_f32|rand_i32|zeros|iota|fuzz_i32|fuzz_f32)(?:\(([^)]*)\))?(?:\[(.+)\])?$")
 SIG_RE = re.compile(r"kernel\s+(\w+)\s*\(([^)]*)\)")
 
 
@@ -129,12 +131,48 @@ def make_inputs(spec: Spec, n: int) -> list:
                 arr = rng.uniform(lo, hi, size).astype(np.float32)
             elif kind == "rand_i32":
                 arr = rng.integers(int(lo), int(hi), size, dtype=np.int64).astype(np.int32)
+            elif kind == "fuzz_i32":
+                arr = fuzz_ints(rng, size)
+            elif kind == "fuzz_f32":
+                arr = fuzz_floats(rng, size)
             elif kind == "zeros":
                 arr = np.zeros(size, p.dtype)
             else:
                 arr = np.arange(size).astype(p.dtype)
             args.append(arr)
     return args
+
+
+INT_EDGES = np.array([0, 1, -1, 2, 7, 1000, -1000, 2**31 - 1, -2**31, 2**31 - 2, -2**31 + 1, 65536],
+                     dtype=np.int64)
+FLOAT_EDGES = np.array([0.0, -0.0, 1.0, -1.0, 0.5, 1e30, -1e30, 1e-40, -1e-40, 3.4e38, 1e-3],
+                       dtype=np.float32)
+
+
+def fuzz_ints(rng, size: int) -> np.ndarray:
+    small = rng.integers(-1000, 1000, size)
+    full = rng.integers(-2**31, 2**31, size)
+    edge = INT_EDGES[rng.integers(0, len(INT_EDGES), size)]
+    pick = rng.random(size)
+    return np.where(pick < 0.6, small, np.where(pick < 0.8, full, edge)).astype(np.int32)
+
+
+def fuzz_floats(rng, size: int) -> np.ndarray:
+    normal = rng.uniform(-100, 100, size).astype(np.float32)
+    wide = rng.uniform(-1e6, 1e6, size).astype(np.float32)
+    edge = FLOAT_EDGES[rng.integers(0, len(FLOAT_EDGES), size)]
+    pick = rng.random(size)
+    return np.where(pick < 0.6, normal, np.where(pick < 0.75, wide, edge)).astype(np.float32)
+
+
+def load_spec(js: Path) -> Spec:
+    d = json.loads(js.read_text())
+    tc = js.with_suffix(".tc")
+    params = parse_signature(tc.read_text(), d["kernel"])
+    if len(params) != len(d["params"]):
+        raise ValueError(f"{js.name}: {len(d['params'])} generators for {len(params)} params")
+    return Spec(d["kernel"], str(d["grid"]), int(d["block"]), d["n"], d["params"], d["outputs"],
+                params, tc, js.with_suffix(".cu"))
 
 
 def outputs_of(spec: Spec, values: list) -> dict[str, np.ndarray]:
@@ -168,7 +206,7 @@ def _launch_cupy(kernel, spec: Spec, n: int, args: list) -> dict[str, np.ndarray
     return outputs_of(spec, host)
 
 
-_ptx_cache: dict[tuple[str, int], object] = {}
+_ptx_cache: dict[tuple[str, str, int], object] = {}
 
 
 def run_gpu(spec: Spec, n: int, args: list, opt: int = 0) -> dict[str, np.ndarray]:
@@ -177,7 +215,7 @@ def run_gpu(spec: Spec, n: int, args: list, opt: int = 0) -> dict[str, np.ndarra
         cp = _cupy()
     except ImportError:
         return run_gpu_runner(spec, n, args, opt)
-    key = (spec.name, opt)
+    key = (str(spec.tc), spec.tc.read_text(), opt)
     if key not in _ptx_cache:
         ptx = tc_compile(spec.tc, emit="ptx", opt=opt)
         d = Path(tempfile.mkdtemp())
@@ -186,15 +224,40 @@ def run_gpu(spec: Spec, n: int, args: list, opt: int = 0) -> dict[str, np.ndarra
     return _launch_cupy(_ptx_cache[key], spec, n, args)
 
 
-_nvrtc_cache: dict[str, object] = {}
+_nvrtc_cache: dict[tuple, object] = {}
+
+
+def nvrtc_kernel(src: str, name: str, options: tuple[str, ...]):
+    """Compile CUDA source with NVRTC *directly* and load the PTX.
+
+    Not via cupy.RawKernel: CuPy always appends `-ftz=true` (flush subnormals to zero), which
+    would silently give the twin different float semantics from nvcc's defaults and TinyCU.
+    Cached by (source, options): every fuzz program is called `fuzz`.
+    """
+    key = (src, name, options)
+    if key not in _nvrtc_cache:
+        cp = _cupy()
+        from cupy.cuda import nvrtc  # noqa: PLC0415
+        arch = f"--gpu-architecture=compute_{cp.cuda.Device().compute_capability}"
+        prog = nvrtc.createProgram(src, "twin.cu", [], [])
+        try:
+            nvrtc.compileProgram(prog, [arch, *options])
+        except Exception as e:  # noqa: BLE001
+            raise RuntimeError(f"NVRTC failed: {e}\n{nvrtc.getProgramLog(prog)}") from e
+        ptx = nvrtc.getPTX(prog)
+        nvrtc.destroyProgram(prog)
+        ptx = ptx.decode() if isinstance(ptx, bytes) else ptx
+        d = Path(tempfile.mkdtemp())
+        (d / "twin.ptx").write_text(ptx.rstrip("\x00"))  # NVRTC returns a NUL-terminated string
+        _nvrtc_cache[key] = cp.RawModule(path=str(d / "twin.ptx")).get_function(name)
+    return _nvrtc_cache[key]
 
 
 def run_nvrtc(spec: Spec, n: int, args: list) -> dict[str, np.ndarray]:
-    """The CUDA twin compiled by NVRTC with -fmad=false (no FMA contraction)."""
-    cp = _cupy()
-    if spec.name not in _nvrtc_cache:
-        _nvrtc_cache[spec.name] = cp.RawKernel(spec.cu.read_text(), spec.name, options=("-fmad=false",))
-    return _launch_cupy(_nvrtc_cache[spec.name], spec, n, args)
+    """The CUDA twin compiled by NVRTC with -fmad=false (no FMA contraction) and otherwise
+    default (IEEE) float semantics: no flush-to-zero, precise division and sqrt."""
+    kernel = nvrtc_kernel(spec.cu.read_text(), spec.name, ("-fmad=false",))
+    return _launch_cupy(kernel, spec, n, args)
 
 
 def find_runner() -> Path | None:
