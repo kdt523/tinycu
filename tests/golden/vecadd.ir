@@ -1,0 +1,28 @@
+kernel vecadd(ptr %a, ptr %b, ptr %c, i32 %n) {
+entry:
+  %a:ptr = param 0
+  %b:ptr = param 1
+  %c:ptr = param 2
+  %n:i32 = param 3
+  %5:i32 = sreg ctaid
+  %6:i32 = sreg ntid
+  %7:i32 = mul %5, %6
+  %8:i32 = sreg tid
+  %9:i32 = add %7, %8
+  %i:i32 = mov %9
+  %10:i1 = cmp.lt %i, %n
+  condbr %10, if.then.1, if.end.1
+if.then.1:
+  %11:i64 = addr %c, %i, 4
+  %12:i64 = addr %a, %i, 4
+  %13:i32 = load.global %12
+  %14:i64 = addr %b, %i, 4
+  %15:i32 = load.global %14
+  %16:i32 = add %13, %15
+  store.global %11, %16
+  br if.end.1
+if.end.1:
+  br exit
+exit:
+  ret
+}

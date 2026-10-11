@@ -1,10 +1,14 @@
 // tinycu — command-line driver.
 //
-//   tinycu <input.tc> [-o out.ptx] [-O0|-O1] [--emit=ast|ir|ptx] [--dump-after=<pass>]
-//          [--interp --grid N --block M --args args.json] [--sm=sm_75] [--version] [--help]
+//   tinycu <input.tc> [-o out] [-O0|-O1] [--emit=ast|ir|ptx] [--dump-after=<pass>]
+//          [--interp --grid N --block M --args args.json [--kernel name]]
+//          [--verify-each|--no-verify-each] [--sm=sm_75] [--version] [--help]
 //
-// Exit codes: 0 ok, 1 compile error, 2 usage error, 3 internal error.
+// Exit codes: 0 ok, 1 compile error, 2 usage error, 3 internal error,
+//             4 kernel runtime error reported by the interpreter.
 
+#include "tinycu/interp.h"
+#include "tinycu/ir.h"
 #include "tinycu/parser.h"
 #include "tinycu/sema.h"
 #include "tinycu/version.h"
@@ -19,7 +23,13 @@
 
 namespace {
 
-enum ExitCode { kOk = 0, kCompileError = 1, kUsageError = 2, kInternalError = 3 };
+enum ExitCode {
+  kOk = 0,
+  kCompileError = 1,
+  kUsageError = 2,
+  kInternalError = 3,
+  kRuntimeError = 4
+};
 
 enum class Emit { Ast, Ir, Ptx };
 
@@ -33,14 +43,22 @@ struct Options {
   long grid = 1;
   long block = 1;
   std::string argsJson;
+  std::string kernel;
+#ifdef NDEBUG
+  bool verifyEach = false;
+#else
+  bool verifyEach = true; // default ON in Debug builds
+#endif
   std::string sm = "sm_75";
 };
 
 void printUsage(std::FILE *out) {
-  std::fprintf(out,
-               "usage: tinycu <input.tc> [-o out.ptx] [-O0|-O1] [--emit=ast|ir|ptx]\n"
-               "              [--dump-after=<pass>] [--interp --grid N --block M --args a.json]\n"
-               "              [--sm=sm_75] [--version] [--help]\n");
+  std::fprintf(out, "usage: tinycu <input.tc> [-o out] [-O0|-O1] [--emit=ast|ir|ptx]\n"
+                    "              [--dump-after=<pass>] [--verify-each|--no-verify-each]\n"
+                    "              [--interp --grid N --block M --args a.json [--kernel name]]\n"
+                    "              [--sm=sm_75] [--version] [--help]\n"
+                    "exit codes: 0 ok, 1 compile error, 2 usage error, 3 internal error,\n"
+                    "            4 kernel runtime error (interpreter)\n");
 }
 
 int usageError(const std::string &msg) {
@@ -95,6 +113,10 @@ int parseArgs(const std::vector<std::string> &args, Options &opts) {
         return usageError("unknown --emit kind '" + v + "'");
     } else if (startsWith(a, "--dump-after=")) {
       opts.dumpAfter = a.substr(13);
+    } else if (a == "--verify-each") {
+      opts.verifyEach = true;
+    } else if (a == "--no-verify-each") {
+      opts.verifyEach = false;
     } else if (a == "--interp") {
       opts.interp = true;
     } else if (a == "--grid" || a == "--block") {
@@ -104,6 +126,9 @@ int parseArgs(const std::vector<std::string> &args, Options &opts) {
     } else if (a == "--args") {
       if (!needValue(opts.argsJson))
         return usageError("'--args' requires a file name");
+    } else if (a == "--kernel") {
+      if (!needValue(opts.kernel))
+        return usageError("'--kernel' requires a name");
     } else if (startsWith(a, "--sm=")) {
       opts.sm = a.substr(5);
     } else if (!a.empty() && a[0] == '-') {
@@ -116,6 +141,14 @@ int parseArgs(const std::vector<std::string> &args, Options &opts) {
   }
   if (opts.input.empty())
     return usageError("no input file");
+  if (opts.interp) {
+    if (opts.argsJson.empty())
+      return usageError("'--interp' requires '--args <file.json>'");
+    if (opts.block > 1024)
+      return usageError("'--block' must be at most 1024");
+    if (opts.grid > 0x7fffffffL)
+      return usageError("'--grid' is too large");
+  }
   return -1;
 }
 
@@ -143,6 +176,57 @@ int writeOutput(const Options &opts, const std::string &text) {
   return kOk;
 }
 
+// A verifier failure is a compiler bug: report it with the offending IR.
+bool verifyModule(const tinycu::ir::Module &m, const char *after) {
+  bool ok = true;
+  for (const auto &fn : m.functions) {
+    std::vector<std::string> errs = tinycu::ir::verify(*fn);
+    if (errs.empty())
+      continue;
+    ok = false;
+    std::fprintf(stderr, "tinycu: internal error: IR verification failed after %s:\n", after);
+    for (const std::string &e : errs)
+      std::fprintf(stderr, "  %s\n", e.c_str());
+    std::fprintf(stderr, "%s", tinycu::ir::printFunction(*fn).c_str());
+  }
+  return ok;
+}
+
+int interpret(const Options &opts, const tinycu::ir::Module &m) {
+  const tinycu::ir::Function *fn = nullptr;
+  if (opts.kernel.empty()) {
+    if (m.functions.size() != 1) {
+      std::fprintf(stderr, "tinycu: error: the file has several kernels; choose one with "
+                           "--kernel\n");
+      return kUsageError;
+    }
+    fn = m.functions[0].get();
+  } else if (!(fn = m.find(opts.kernel))) {
+    std::fprintf(stderr, "tinycu: error: no kernel named '%s'\n", opts.kernel.c_str());
+    return kUsageError;
+  }
+  std::string text, err;
+  if (!readFile(opts.argsJson, text)) {
+    std::fprintf(stderr, "tinycu: error: cannot read '%s'\n", opts.argsJson.c_str());
+    return kUsageError;
+  }
+  std::vector<tinycu::interp::ArgValue> args;
+  if (!tinycu::interp::parseArgsJson(text, *fn, args, err)) {
+    std::fprintf(stderr, "tinycu: error: %s\n", err.c_str());
+    return kUsageError;
+  }
+  tinycu::interp::LaunchConfig cfg;
+  cfg.grid = static_cast<uint32_t>(opts.grid);
+  cfg.block = static_cast<uint32_t>(opts.block);
+  tinycu::interp::Result r = tinycu::interp::run(*fn, cfg, args);
+  int rc = writeOutput(opts, tinycu::interp::resultJson(*fn, cfg, r, args));
+  if (!r.ok) {
+    std::fprintf(stderr, "tinycu: %s\n", r.error.c_str());
+    return kRuntimeError;
+  }
+  return rc;
+}
+
 int compile(const Options &opts) {
   std::string source;
   if (!readFile(opts.input, source)) {
@@ -161,8 +245,16 @@ int compile(const Options &opts) {
   if (opts.emit == Emit::Ast && !opts.interp)
     return writeOutput(opts, tinycu::printAST(*prog));
 
-  std::fprintf(stderr, "tinycu: %s: not implemented\n",
-               opts.interp ? "interpreter" : "code generation");
+  std::unique_ptr<tinycu::ir::Module> module = tinycu::lowerProgram(*prog);
+  if (opts.verifyEach && !verifyModule(*module, "lowering"))
+    return kInternalError;
+
+  if (opts.interp)
+    return interpret(opts, *module);
+  if (opts.emit == Emit::Ir)
+    return writeOutput(opts, tinycu::ir::printModule(*module));
+
+  std::fprintf(stderr, "tinycu: code generation: not implemented\n");
   return kInternalError;
 }
 

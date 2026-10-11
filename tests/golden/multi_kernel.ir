@@ -1,0 +1,57 @@
+kernel scale(ptr %x, f32 %s, i32 %n) {
+entry:
+  %x:ptr = param 0
+  %s:f32 = param 1
+  %n:i32 = param 2
+  %4:i32 = sreg ctaid
+  %5:i32 = sreg ntid
+  %6:i32 = mul %4, %5
+  %7:i32 = sreg tid
+  %8:i32 = add %6, %7
+  %i:i32 = mov %8
+  %9:i1 = cmp.lt %i, %n
+  condbr %9, if.then.1, if.end.1
+if.then.1:
+  %10:i64 = addr %x, %i, 4
+  %11:i64 = addr %x, %i, 4
+  %12:f32 = load.global %11
+  %13:f32 = mul %12, %s
+  store.global %10, %13
+  br if.end.1
+if.end.1:
+  br exit
+exit:
+  ret
+}
+
+kernel fill(ptr %x, i32 %v, i32 %n) {
+entry:
+  %x:ptr = param 0
+  %v:i32 = param 1
+  %n:i32 = param 2
+  %4:i32 = sreg ctaid
+  %5:i32 = sreg ntid
+  %6:i32 = mul %4, %5
+  %7:i32 = sreg tid
+  %8:i32 = add %6, %7
+  %i:i32 = mov %8
+  br for.cond.1
+for.cond.1:
+  %9:i1 = cmp.lt %i, %n
+  condbr %9, for.body.1, for.end.1
+for.body.1:
+  %10:i64 = addr %x, %i, 4
+  store.global %10, %v
+  br for.inc.1
+for.inc.1:
+  %11:i32 = sreg ntid
+  %12:i32 = sreg nctaid
+  %13:i32 = mul %11, %12
+  %14:i32 = add %i, %13
+  %i:i32 = mov %14
+  br for.cond.1
+for.end.1:
+  br exit
+exit:
+  ret
+}

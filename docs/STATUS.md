@@ -5,7 +5,7 @@
 | 00 | setup | done | v0.0 |
 | 01 | frontend | done | v0.1 |
 | 02 | sema | done | v0.2 |
-| 03 | ir-interp | todo | |
+| 03 | ir-interp | done | v0.3 |
 | 04 | ptx-backend | todo | |
 | 05 | gpu-runtime | todo | |
 | 06 | optimizer | todo | |
@@ -34,3 +34,9 @@
   lvalue/pointer/shared-array rules, typed `--emit=ast`. Tests: 15 sema unit tests, sema fuzz
   (1,000 token substitutions), 29 sema error cases, 6 warning cases, all 14 golden programs
   re-snapshotted with types.
+- **Phase 3**: non-SSA three-address IR, lowering (short-circuit, loops, single exit), verifier,
+  CFG utilities, printer (`--emit=ir`), interpreter oracle (`--interp`, JSON I/O, UB detection,
+  barrier lock-step), Python `tcharness.tinycu` wrapper. Tests: 18 IR/verifier/CFG unit tests,
+  23 interpreter unit tests, 20 pytest NumPy bit-exact checks (13 kernels + 1 runtime-error check), 14 IR goldens.
+  Decisions: uninitialized locals are 0; f32 `!=` is true for NaN (PTX must use `setp.neu`);
+  exit code 4 = kernel runtime error.

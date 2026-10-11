@@ -33,6 +33,8 @@ jobs:
       - name: ctest
         run: ctest --test-dir build --output-on-failure
       - name: pytest
+        env:
+          TINYCU: ${{ github.workspace }}/build/tinycu
         run: |
           pip install -e harness
           pytest

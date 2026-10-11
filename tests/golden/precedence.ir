@@ -1,0 +1,70 @@
+kernel precedence(ptr %out, i32 %a, i32 %b, i32 %c) {
+entry:
+  %out:ptr = param 0
+  %a:i32 = param 1
+  %b:i32 = param 2
+  %c:i32 = param 3
+  %5:i32 = sub %a, %b
+  %6:i32 = sub %5, %c
+  %r:i32 = mov %6
+  %7:i32 = mul %b, %c
+  %8:i32 = add %a, %7
+  %r:i32 = mov %8
+  %9:i32 = neg %a
+  %10:i32 = mul %9, %b
+  %r:i32 = mov %10
+  %11:i32 = add %a, %b
+  %12:i32 = mul %11, %c
+  %13:i32 = div %12, 2
+  %14:i32 = rem %13, 5
+  %r:i32 = mov %14
+  %17:i1 = cmp.lt %a, %b
+  %18:i1 = not %17
+  %16:i1 = mov %18
+  condbr %18, and.rhs.3, and.end.3
+and.rhs.3:
+  %19:i1 = cmp.le %b, %c
+  %16:i1 = mov %19
+  br and.end.3
+and.end.3:
+  %15:i1 = mov %16
+  condbr %16, or.end.2, or.rhs.2
+or.rhs.2:
+  %21:i1 = cmp.eq %a, %c
+  %20:i1 = mov %21
+  condbr %21, and.rhs.4, and.end.4
+and.rhs.4:
+  %22:i1 = cmp.ne %b, %c
+  %20:i1 = mov %22
+  br and.end.4
+and.end.4:
+  %15:i1 = mov %20
+  br or.end.2
+or.end.2:
+  condbr %15, if.then.1, if.end.1
+if.then.1:
+  %23:i32 = add %r, 1
+  %r:i32 = mov %23
+  br if.end.1
+if.end.1:
+  %25:i1 = cmp.gt %a, %b
+  %24:i1 = mov %25
+  condbr %25, and.rhs.6, and.end.6
+and.rhs.6:
+  %26:i1 = cmp.ge %c, %a
+  %27:i1 = not %26
+  %24:i1 = mov %27
+  br and.end.6
+and.end.6:
+  condbr %24, if.then.5, if.end.5
+if.then.5:
+  %28:i32 = sub %r, 1
+  %r:i32 = mov %28
+  br if.end.5
+if.end.5:
+  %29:i64 = addr %out, 0, 4
+  store.global %29, %r
+  br exit
+exit:
+  ret
+}

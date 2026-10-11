@@ -101,3 +101,48 @@ diagnostic, the same technique clang uses.
 LANGUAGE.md §5 is that spec. Every rule has an error test, and the fuzzer (phase 7) generates
 only programs the spec says are valid and UB-free. Ambiguities found while writing sema (e.g. is
 `bool == bool` allowed? No) were settled in the spec first, then implemented.
+
+## Phase 3 — IR, CFG and the interpreter oracle
+
+**Three-address code.** Every instruction has at most one operator and three "addresses":
+`%d = op a, b`. Nested expressions are flattened into temporaries. Stored as *quadruples*
+(op, a, b, dst); TinyCU's `Inst` is a quadruple plus branch targets and an `aux` field.
+
+**Basic blocks and the leaders algorithm.** A *leader* is the first instruction of the
+program, any branch target, and any instruction right after a branch. A basic block runs from
+one leader up to the next. TinyCU creates blocks directly during lowering (one per
+`if.then`, `for.cond`, ...), so leaders never need to be recomputed. The verifier enforces the
+result: exactly one terminator, at the end.
+
+**CFG.** Nodes are blocks and edges are branches. *Reverse post-order* is the classic iteration
+order for forward dataflow: every block comes before its successors, except along loop back
+edges. Unreachable blocks, like code after `return`, simply don't appear in the RPO.
+
+**Why SSA exists, and why TinyCU skips it.** In SSA every variable is assigned exactly once, and
+phi nodes merge values at join points. That makes def-use chains trivial and many optimizations
+(constant propagation, GVN, register allocation by graph coloring on chordal graphs) simpler and
+faster. The costs are building it (dominance frontiers) and leaving it (phi elimination). TinyCU
+stays non-SSA:
+- its optimizations are local or simple global ones;
+- PTX accepts repeated assignments to a virtual register;
+- `ptxas` builds its own SSA form anyway.
+
+This is a deliberate scope choice, and "add SSA" is listed as future work.
+
+**Short-circuit evaluation as control flow.** `a && b` must not evaluate `b` when `a` is false,
+because `b` might index out of bounds. Lowering emits a conditional branch around `b`'s code,
+not an `and` instruction. On a GPU this introduces divergence. A later optimization could turn a
+side-effect-free `b` back into predicated code (`and.pred`).
+
+**An interpreter as the test oracle.** A second, much simpler implementation of the language
+semantics. It is written for obviousness, not speed, and every undefined behavior is checked and
+reported. Every compiled result (`-O0`, `-O1`, the GPU, nvcc twins) is compared against it. This
+works because the interpreter is independent of the backend and the optimizer: a bug has to be
+made twice, the same way, to go unnoticed. The interpreter is also what makes random testing
+safe. A generated program that triggers UB is caught as a generator bug, instead of becoming a
+false miscompile report.
+
+**SIMT emulation detail.** Without barriers, running threads one after another is equivalent to
+any interleaving for race-free kernels. With `__syncthreads`, the interpreter runs each thread up
+to the barrier, then releases all of them. That is exactly the guarantee CUDA gives. Threads that
+skip a barrier others are waiting at are *barrier divergence*: UB in CUDA, an error here.

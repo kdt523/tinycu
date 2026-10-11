@@ -22,11 +22,20 @@ if(TINYCU_ENABLE_SANITIZERS)
   add_link_options(-fsanitize=address,undefined)
 endif()
 
+include(FetchContent)
+# JSON for --interp args/results and the GPU runner (header-only).
+FetchContent_Declare(nlohmann_json
+  URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+  URL_HASH SHA256=d6c65aca6b1ed68e7a182f4757257b107ae403032760ed6ef121c9d55e81757d
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+FetchContent_MakeAvailable(nlohmann_json)
+
 # ---- core library: everything in src/ except driver/ and runtime/ ----
 file(GLOB_RECURSE TINYCU_CORE_SOURCES CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*.cpp)
 list(FILTER TINYCU_CORE_SOURCES EXCLUDE REGEX "/src/(driver|runtime)/")
 add_library(tinycu_core STATIC ${TINYCU_CORE_SOURCES})
 target_include_directories(tinycu_core PUBLIC ${PROJECT_SOURCE_DIR}/include)
+target_link_libraries(tinycu_core PUBLIC nlohmann_json::nlohmann_json)
 target_compile_definitions(tinycu_core PUBLIC TINYCU_VERSION="${PROJECT_VERSION}")
 
 add_executable(tinycu src/driver/main.cpp)
@@ -51,7 +60,6 @@ message(STATUS "TinyCU: GPU runtime runner = ${_tinycu_runtime}")
 # ---- tests ----
 include(CTest)
 if(BUILD_TESTING)
-  include(FetchContent)
   FetchContent_Declare(googletest
     GIT_REPOSITORY https://github.com/google/googletest.git
     GIT_TAG v1.14.0)
@@ -62,6 +70,7 @@ if(BUILD_TESTING)
   file(GLOB TINYCU_UNIT_TESTS CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/tests/unit/*.cpp)
   add_executable(tinycu_unit_tests ${TINYCU_UNIT_TESTS})
   target_link_libraries(tinycu_unit_tests PRIVATE tinycu_core GTest::gtest_main)
+  target_compile_definitions(tinycu_unit_tests PRIVATE TINYCU_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
   gtest_discover_tests(tinycu_unit_tests)
 
   find_package(Python3 REQUIRED COMPONENTS Interpreter)

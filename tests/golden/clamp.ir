@@ -1,0 +1,27 @@
+kernel clamp(ptr %x, f32 %lo, f32 %hi, i32 %n) {
+entry:
+  %x:ptr = param 0
+  %lo:f32 = param 1
+  %hi:f32 = param 2
+  %n:i32 = param 3
+  %5:i32 = sreg ctaid
+  %6:i32 = sreg ntid
+  %7:i32 = mul %5, %6
+  %8:i32 = sreg tid
+  %9:i32 = add %7, %8
+  %i:i32 = mov %9
+  %10:i1 = cmp.ge %i, %n
+  condbr %10, if.then.1, if.end.1
+if.then.1:
+  br exit
+if.end.1:
+  %11:i64 = addr %x, %i, 4
+  %12:i64 = addr %x, %i, 4
+  %13:f32 = load.global %12
+  %14:f32 = max %13, %lo
+  %15:f32 = min %14, %hi
+  store.global %11, %15
+  br exit
+exit:
+  ret
+}

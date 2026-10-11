@@ -1,0 +1,25 @@
+kernel dangling(ptr %o, i32 %a, i32 %b) {
+entry:
+  %o:ptr = param 0
+  %a:i32 = param 1
+  %b:i32 = param 2
+  %3:i1 = cmp.gt %a, 0
+  condbr %3, if.then.1, if.end.1
+if.then.1:
+  %4:i1 = cmp.gt %b, 0
+  condbr %4, if.then.2, if.else.2
+if.then.2:
+  %5:i64 = addr %o, 0, 4
+  store.global %5, 1
+  br if.end.2
+if.else.2:
+  %6:i64 = addr %o, 0, 4
+  store.global %6, 2
+  br if.end.2
+if.end.2:
+  br if.end.1
+if.end.1:
+  br exit
+exit:
+  ret
+}
