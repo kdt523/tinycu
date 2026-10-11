@@ -1,0 +1,8 @@
+/* Clamp every element into [lo, hi] using the min/max builtins. */
+kernel clamp(float* x, float lo, float hi, int n) {
+  int i = blockIdx * blockDim + threadIdx;
+  if (i >= n) {
+    return;
+  }
+  x[i] = min(max(x[i], lo), hi);
+}

@@ -1,0 +1,11 @@
+(kernel scale (params (float* x) (float s) (int n))
+  (block
+    (vardecl int i (+ (* blockIdx blockDim) threadIdx))
+    (if (< i n)
+      (block
+        (assign = (index x i) (* (index x i) s))))))
+(kernel fill (params (int* x) (int v) (int n))
+  (block
+    (for (vardecl int i (+ (* blockIdx blockDim) threadIdx)) (< i n) (assign += i (* blockDim gridDim))
+      (block
+        (assign = (index x i) v)))))

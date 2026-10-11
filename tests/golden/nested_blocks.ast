@@ -1,0 +1,15 @@
+(kernel nested (params (int* o) (int n))
+  (block
+    (vardecl int i threadIdx)
+    (block
+      (vardecl int a 1)
+      (block
+        (vardecl int b (+ a 2))
+        (if (< i n)
+          (block
+            (assign = (index o i) b))
+          (block
+            (block)))))
+    (if (|| true false)
+      (block
+        (return)))))

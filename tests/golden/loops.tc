@@ -1,0 +1,24 @@
+kernel loops(int* out, int n) {
+  int i = blockIdx * blockDim + threadIdx;
+  if (i < n) {
+    int sum = 0;
+    for (int k = 0; k < 10; k++) {
+      if (k == 3) {
+        continue;
+      }
+      if (k > 7) {
+        break;
+      }
+      sum += k;
+    }
+    int j = i;
+    while (j > 0 && sum < 1000) {
+      sum = sum + j % 7;
+      j--;
+    }
+    for (;;) {
+      break;
+    }
+    out[i] = sum;
+  }
+}

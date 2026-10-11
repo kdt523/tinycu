@@ -1,0 +1,4 @@
+// EXPECT: 3:18: expected integer literal array size
+kernel k(int n) {
+  shared int buf[n];
+}

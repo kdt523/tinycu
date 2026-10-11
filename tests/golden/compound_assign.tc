@@ -1,0 +1,17 @@
+kernel compound(float* x, int* y, int n) {
+  int i = threadIdx;
+  if (i < n) {
+    x[i] += 1.0f;
+    x[i] -= 2.0f;
+    x[i] *= 3.0f;
+    x[i] /= 4.0f;
+    y[i]++;
+    y[i]--;
+    int k = 0;
+    k += 5;
+    k *= 2;
+    k /= 3;
+    k -= 1;
+    y[i] = k;
+  }
+}

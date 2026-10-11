@@ -1,0 +1,4 @@
+// EXPECT: 3:10: float literal '1e-50' underflows to zero
+kernel k(float* o) {
+  o[0] = 1e-50;
+}

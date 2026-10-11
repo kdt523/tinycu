@@ -1,0 +1,4 @@
+// EXPECT: 3:10: invalid suffix on numeric literal '12abc'
+kernel k(int* o) {
+  o[0] = 12abc;
+}

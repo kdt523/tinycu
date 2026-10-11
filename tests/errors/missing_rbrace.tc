@@ -1,0 +1,4 @@
+// EXPECT: 5:1: expected '}' to match '{' at 2:17
+kernel k(int n) {
+  int x = n;
+

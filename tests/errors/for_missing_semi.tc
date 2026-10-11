@@ -1,0 +1,5 @@
+// EXPECT: 3:15: expected ';' after 'for' condition
+kernel k(int x) {
+  for (; x < 3 ) {
+  }
+}

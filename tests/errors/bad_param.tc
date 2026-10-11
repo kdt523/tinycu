@@ -1,0 +1,3 @@
+// EXPECT: 2:10: expected parameter type ('int' or 'float'), found identifier
+kernel k(double x) {
+}

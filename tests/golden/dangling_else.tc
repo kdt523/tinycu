@@ -1,0 +1,8 @@
+// The else binds to the nearest if.
+kernel dangling(int* o, int a, int b) {
+  if (a > 0)
+    if (b > 0)
+      o[0] = 1;
+    else
+      o[0] = 2;
+}

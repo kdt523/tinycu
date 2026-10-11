@@ -1,0 +1,18 @@
+kernel nested(int* o, int n) {
+  int i = threadIdx;
+  {
+    int a = 1;
+    {
+      int b = a + 2;
+      if (i < n) {
+        o[i] = b;
+      } else {
+        {
+        }
+      }
+    }
+  }
+  if (true || false) {
+    return;
+  }
+}

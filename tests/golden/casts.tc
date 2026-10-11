@@ -1,0 +1,9 @@
+kernel casts(float* f, int* o, int n) {
+  int i = threadIdx;
+  if (i < n) {
+    float x = (float)i * 0.5f;
+    int t = (int)f[i];
+    o[i] = t + (int)(x * 2.0);
+    f[i] = (float)(-t) + 1.5e3 + 2e-3;
+  }
+}

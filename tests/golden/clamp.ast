@@ -1,0 +1,7 @@
+(kernel clamp (params (float* x) (float lo) (float hi) (int n))
+  (block
+    (vardecl int i (+ (* blockIdx blockDim) threadIdx))
+    (if (>= i n)
+      (block
+        (return)))
+    (assign = (index x i) (call min (call max (index x i) lo) hi))))

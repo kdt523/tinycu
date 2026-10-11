@@ -5,10 +5,14 @@
 //
 // Exit codes: 0 ok, 1 compile error, 2 usage error, 3 internal error.
 
+#include "tinycu/parser.h"
 #include "tinycu/version.h"
 
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -44,9 +48,7 @@ int usageError(const std::string &msg) {
   return kUsageError;
 }
 
-bool startsWith(const std::string &s, const char *prefix) {
-  return s.rfind(prefix, 0) == 0;
-}
+bool startsWith(const std::string &s, const char *prefix) { return s.rfind(prefix, 0) == 0; }
 
 bool parseLong(const std::string &s, long &out) {
   if (s.empty())
@@ -116,6 +118,50 @@ int parseArgs(const std::vector<std::string> &args, Options &opts) {
   return -1;
 }
 
+bool readFile(const std::string &path, std::string &out) {
+  std::ifstream in(path, std::ios::binary);
+  if (!in)
+    return false;
+  std::ostringstream ss;
+  ss << in.rdbuf();
+  out = ss.str();
+  return true;
+}
+
+int writeOutput(const Options &opts, const std::string &text) {
+  if (opts.output.empty() || opts.output == "-") {
+    std::cout << text;
+    return kOk;
+  }
+  std::ofstream out(opts.output, std::ios::binary);
+  if (!out) {
+    std::fprintf(stderr, "tinycu: error: cannot open '%s' for writing\n", opts.output.c_str());
+    return kUsageError;
+  }
+  out << text;
+  return kOk;
+}
+
+int compile(const Options &opts) {
+  std::string source;
+  if (!readFile(opts.input, source)) {
+    std::fprintf(stderr, "tinycu: error: cannot read '%s'\n", opts.input.c_str());
+    return kUsageError;
+  }
+  tinycu::DiagEngine diag(opts.input, source);
+  std::unique_ptr<tinycu::Program> prog = tinycu::parseSource(source, diag);
+  diag.print(std::cerr);
+  if (diag.hasErrors())
+    return kCompileError;
+
+  if (opts.emit == Emit::Ast && !opts.interp)
+    return writeOutput(opts, tinycu::printAST(*prog));
+
+  std::fprintf(stderr, "tinycu: %s: not implemented\n",
+               opts.interp ? "interpreter" : "code generation");
+  return kInternalError;
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
@@ -124,8 +170,5 @@ int main(int argc, char **argv) {
   int rc = parseArgs(args, opts);
   if (rc >= 0)
     return rc;
-
-  std::fprintf(stderr, "tinycu: %s: not implemented\n",
-               opts.interp ? "interpreter" : "compilation");
-  return kInternalError;
+  return compile(opts);
 }

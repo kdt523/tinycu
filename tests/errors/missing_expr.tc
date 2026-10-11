@@ -1,0 +1,4 @@
+// EXPECT: 3:13: expected expression, found ';'
+kernel k(int* o) {
+  o[0] = 1 +;
+}

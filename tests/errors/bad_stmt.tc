@@ -1,0 +1,4 @@
+// EXPECT: 3:3: expected statement, found integer literal
+kernel k(int n) {
+  42;
+}

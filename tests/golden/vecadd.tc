@@ -1,0 +1,7 @@
+// c = a + b (int)
+kernel vecadd(int* a, int* b, int* c, int n) {
+  int i = blockIdx * blockDim + threadIdx;
+  if (i < n) {
+    c[i] = a[i] + b[i];
+  }
+}

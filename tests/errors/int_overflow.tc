@@ -1,0 +1,4 @@
+// EXPECT: 3:11: integer literal '2147483648' is too large for int
+kernel k(int* o) {
+  o[0] = -2147483648;
+}

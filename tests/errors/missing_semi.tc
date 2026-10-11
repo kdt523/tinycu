@@ -1,0 +1,5 @@
+// EXPECT: 3:12: expected ';' after declaration
+kernel k(int n) {
+  int x = 3
+  x = 4;
+}

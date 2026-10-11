@@ -1,0 +1,4 @@
+// EXPECT: 3:5: expected assignment operator after 'x'
+kernel k(int x) {
+  x + 1;
+}

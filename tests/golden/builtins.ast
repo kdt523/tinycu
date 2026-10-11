@@ -1,0 +1,7 @@
+(kernel builtins (params (float* x) (int* y) (int n))
+  (block
+    (vardecl int i (+ (* blockIdx blockDim) threadIdx))
+    (if (< i n)
+      (block
+        (assign = (index x i) (- (+ (call sqrt (call abs (index x i))) (call max (index x i) 1.0f)) (call min 2.0f (index x i))))
+        (assign = (index y i) (+ (call abs (- (index y i) 5)) (* (call min i n) (call max gridDim 1))))))))

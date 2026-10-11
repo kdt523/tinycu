@@ -1,0 +1,12 @@
+kernel scale(float* x, float s, int n) {
+  int i = blockIdx * blockDim + threadIdx;
+  if (i < n) {
+    x[i] = x[i] * s;
+  }
+}
+
+kernel fill(int* x, int v, int n) {
+  for (int i = blockIdx * blockDim + threadIdx; i < n; i += blockDim * gridDim) {
+    x[i] = v;
+  }
+}

@@ -1,0 +1,10 @@
+(kernel relu (params (float* x) (float* y) (int n))
+  (block
+    (vardecl int i (+ (* blockIdx blockDim) threadIdx))
+    (if (< i n)
+      (block
+        (vardecl float v (index x i))
+        (if (< v 0.0f)
+          (block
+            (assign = v 0.0)))
+        (assign = (index y i) v)))))

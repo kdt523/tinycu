@@ -1,0 +1,6 @@
+(kernel dangling (params (int* o) (int a) (int b))
+  (block
+    (if (> a 0)
+      (if (> b 0)
+        (assign = (index o 0) 1)
+        (assign = (index o 0) 2)))))

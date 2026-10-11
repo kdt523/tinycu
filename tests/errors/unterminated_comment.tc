@@ -1,0 +1,5 @@
+// EXPECT: 3:3: unterminated block comment
+kernel k(int* o) {
+  /* never closed
+  o[0] = 1;
+}

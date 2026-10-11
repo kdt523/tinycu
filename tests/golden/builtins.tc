@@ -1,0 +1,7 @@
+kernel builtins(float* x, int* y, int n) {
+  int i = blockIdx * blockDim + threadIdx;
+  if (i < n) {
+    x[i] = sqrt(abs(x[i])) + max(x[i], 1.0f) - min(2.0f, x[i]);
+    y[i] = abs(y[i] - 5) + min(i, n) * max(gridDim, 1);
+  }
+}

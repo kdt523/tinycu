@@ -1,0 +1,20 @@
+(kernel reduce_shared (params (float* in) (float* out) (int n))
+  (block
+    (vardecl shared float buf[256])
+    (vardecl int tid threadIdx)
+    (vardecl int i (+ (* blockIdx blockDim) threadIdx))
+    (vardecl float v 0.0f)
+    (if (< i n)
+      (block
+        (assign = v (index in i))))
+    (assign = (index buf tid) v)
+    (syncthreads)
+    (for (vardecl int s (/ blockDim 2)) (> s 0) (assign /= s 2)
+      (block
+        (if (< tid s)
+          (block
+            (assign += (index buf tid) (index buf (+ tid s)))))
+        (syncthreads)))
+    (if (== tid 0)
+      (block
+        (assign = (index out blockIdx) (index buf 0))))))

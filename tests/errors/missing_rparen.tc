@@ -1,0 +1,6 @@
+// EXPECT: 3:13: expected ')' to match '(' at 3:6
+kernel k(int n) {
+  if (n < 3 {
+    return;
+  }
+}
