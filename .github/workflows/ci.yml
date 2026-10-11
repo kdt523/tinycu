@@ -47,7 +47,7 @@ jobs:
       - uses: Jimver/cuda-toolkit@v0.2.19
         with:
           method: network
-          sub-packages: '["nvcc", "cuobjdump"]'
+          sub-packages: '["nvcc", "cuobjdump", "nvdisasm"]'
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"

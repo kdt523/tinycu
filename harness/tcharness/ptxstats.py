@@ -82,12 +82,20 @@ def ptxas_stats(ptx_path: Path, cubin: Path, sm: str) -> dict[str, dict[str, int
     return stats
 
 
+def run_tool(args: list[str]) -> str:
+    r = subprocess.run(args, capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"{' '.join(args)} failed ({r.returncode}):
+{r.stderr}")
+    return r.stdout
+
+
 def sass_counts(cubin: Path) -> dict[str, int]:
-    r = subprocess.run([find_tool("cuobjdump"), "-sass", str(cubin)], capture_output=True,
-                       text=True, check=True)
+    # cuobjdump -sass needs nvdisasm from the CUDA toolkit.
+    out = run_tool([find_tool("cuobjdump"), "-sass", str(cubin)])
     counts: dict[str, int] = {}
     kernel = None
-    for line in r.stdout.splitlines():
+    for line in out.splitlines():
         m = re.search(r"Function : (\w+)", line)
         if m:
             kernel = m.group(1)
@@ -108,11 +116,8 @@ def sass_counts(cubin: Path) -> dict[str, int]:
 
 
 def elf_sections(cubin: Path) -> list[str]:
-    r = subprocess.run([find_tool("cuobjdump"), "-elf", str(cubin)], capture_output=True,
-                       text=True, check=True)
-    names = re.findall(r"^\s*\d+\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+(\.\S+)", r.stdout, re.M)
-    if not names:  # fall back to any ".nv..." / ".text..." section header names
-        names = re.findall(r"(\.(?:nv\.\S+|text\.\S+|shstrtab|strtab|symtab))", r.stdout)
+    out = run_tool([find_tool("cuobjdump"), "-elf", str(cubin)])
+    names = re.findall(r"(\.(?:nv\.\S+|text\.\S+|shstrtab|strtab|symtab))", out)
     seen: list[str] = []
     for n in names:
         if n not in seen:
