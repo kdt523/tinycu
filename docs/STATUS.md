@@ -14,7 +14,7 @@
 
 ## Pending kd (needs the owner)
 - [x] GitHub repo `kdt523/tinycu` created, first push done, CI green (2026-10-11)
-- [ ] Colab T4 run of `notebooks/run_on_colab.ipynb` (phase 5; results commit as `results/*_colab.md`)
+- [x] Colab T4 run of `notebooks/run_on_colab.ipynb` (2026-10-11): Tesla T4, 108/108 cases bit-exact on numpy == interp == gpu == nvrtc; `results/*_colab.md`
 - [ ] Colab GPU fuzz run (phase 7)
 - [ ] Codecov token (phase 8)
 - [ ] Demo recording (phase 8)
