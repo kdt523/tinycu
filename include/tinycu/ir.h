@@ -183,6 +183,10 @@ std::string printValue(const Function &fn, const Value &v);
 std::string printFunction(const Function &fn);
 std::string printModule(const Module &m);
 
+/// Parses the text printed by printFunction (ir_parser.cpp; used by optimizer unit tests).
+/// Returns nullptr and sets `error` on malformed input.
+std::unique_ptr<Function> parseFunction(const std::string &text, std::string &error);
+
 // ---- verification (verifier.cpp) ----
 /// Returns a list of problems; empty means the function is well-formed.
 std::vector<std::string> verify(const Function &fn);

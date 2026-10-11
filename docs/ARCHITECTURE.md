@@ -29,6 +29,36 @@
 All stages live in the static library `tinycu_core`. `src/driver/main.cpp` is a thin CLI on
 top. Diagnostics are collected by `DiagEngine`, never thrown.
 
+## Optimizer (`-O1`)
+
+```
+tinycu k.tc -O1 [--passes=a,b] [--disable-pass=x] [--dump-after=<pass>] [--stats] [--verify-each]
+```
+- **Pass manager** (`src/opt/passmanager.cpp`): `struct Pass { name(); bool run(Function&); }`.
+  `-O1` runs `constfold → copyprop → simplifycfg → dce`, repeating the whole pipeline until no
+  pass changes anything (at most 10 iterations). `--passes=` runs a custom list (also at `-O0`),
+  and `--disable-pass=` drops passes from the pipeline (used by bisection in phase 7).
+  `--verify-each` runs the IR verifier after every pass (on by default in Debug builds).
+  `--dump-after=<pass>` prints the IR to stderr after each run of that pass. `--stats` prints how
+  many rewrites each pass made.
+- **constfold**: per block, propagates constants into operands and folds side-effect-free ops by
+  calling `ir::evalPure`, *the same function the interpreter executes*. It never folds division
+  or remainder by 0, `INT_MIN / -1`, out-of-range float→int, or `sqrt` of a negative number.
+  `condbr <const>` becomes `br`. It also applies algebraic identities: `x+0, x-0, x*1, x/1 → x`
+  and `x*0 → 0`, `x-x → 0` for ints only; `!!p → p`; and for floats only the identities that
+  are exact for NaN, inf and ±0 (`x + -0.0`, `x - 0.0`, `x * 1.0`, `x / 1.0`). Comparisons are
+  never inverted (`!(a<b)` ≠ `a>=b` for floats).
+- **copyprop**: per block, after `mov a, b`, uses of `a` read `b` until `a` or `b` is
+  redefined.
+- **dce**: removes side-effect-free instructions (loads included) whose result is never read,
+  iterating to a fixpoint. Stores, barriers and terminators are never removed. Zero-initialization
+  `mov %x, 0` is only removed when `%x` is never read.
+- **simplifycfg**: rewrites `condbr p, L, L` to `br L`, threads jumps through empty blocks,
+  deletes unreachable blocks, and merges a block into its unique predecessor.
+- **Effect** (`python -m tcharness.optstats`, `results/opt_impact.md`): measured at PTX and SASS
+  level. ptxas already does these optimizations itself, so the SASS change is small, and is
+  reported as such.
+
 ## PTX backend
 
 ### Module and kernels

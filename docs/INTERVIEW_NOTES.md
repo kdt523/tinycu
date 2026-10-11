@@ -273,3 +273,48 @@ takes the same operation order everywhere and no FMA anywhere:
 - `-fmad=false` for NVRTC;
 - `-ffp-contract=off` in the interpreter;
 - NumPy reproducing the reduction tree and matmul accumulation order.
+
+## Phase 6 — optimizer
+
+**Local vs global optimization.** *Local* means within one basic block: straight-line code, so
+"the last definition seen" is the reaching definition and no dataflow analysis is needed.
+TinyCU's constfold and copyprop are local, which is exactly why they're simple and obviously
+correct on non-SSA IR. A redefinition just kills the fact. *Global* means across blocks. It needs
+dataflow analysis over the CFG, because at a join point a variable may have different values
+along different paths.
+
+**Dataflow analysis.**
+- *Reaching definitions* is a **forward** problem: which definitions may reach a point? Its
+  meet operation is union over predecessors.
+- *Liveness* is a **backward** problem: is this value used later on some path? Its meet
+  operation is union over successors.
+
+Both are solved by iterating transfer functions to a **fixpoint** over a **lattice** of finite
+height, so termination is guaranteed. Global constant propagation uses the lattice
+⊤ (unknown) / constant c / ⊥ (not constant). TinyCU's DCE uses a simpler "no use anywhere" rule;
+liveness-based DCE would also remove stores to variables that are overwritten before being read.
+
+**Folding must match target semantics exactly.** Folding is the compiler running the program at
+compile time. If the folder's arithmetic differs from the machine's, the optimized program
+computes a different result: a miscompile that only appears at `-O1`. Classic examples are
+signed overflow folded with host undefined behavior, `INT_MIN / -1`, float folding in double
+precision, and NaN comparisons. TinyCU removes this whole class by construction: the folder calls
+the interpreter's `evalPure`, and the interpreter is itself checked against the GPU and nvcc.
+
+**Why float algebra is not associative.** `(a + b) + c ≠ a + (b + c)` because every operation
+rounds: `(1e20 + -1e20) + 1 = 1` but `1e20 + (-1e20 + 1) = 0`. Several identities that are true
+for real numbers fail too:
+- `x * 0 = 0` fails for NaN, inf and -1 (which gives -0);
+- `x - x = 0` fails for NaN and inf;
+- `x + 0 = x` fails for -0 (`-0 + 0 = +0`);
+- `!(a < b) = (a >= b)` fails when NaN is involved.
+
+That's why `-ffast-math` exists, and why TinyCU applies only the identities that hold for every
+IEEE value.
+
+**Register pressure vs optimization.** Many optimizations extend live ranges: CSE keeps a value
+alive longer, and hoisting computes earlier. More simultaneously-live values means more registers
+per thread, which means lower occupancy or spills. On GPUs this trade-off is central, which is
+why ptxas, not the front end, makes the final decisions. TinyCU's numbers show it: -O1 cut 4.2% of
+PTX instructions, but ptxas register counts didn't change at all, because ptxas had already done
+the equivalent cleanup.

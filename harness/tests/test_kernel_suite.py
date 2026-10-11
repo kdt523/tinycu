@@ -12,6 +12,8 @@ from tcharness import suite
 SPECS = suite.load_specs()
 CASES = [(s, n) for s in SPECS for n in s.sizes]
 IDS = [f"{s.name}-n{n}" for s, n in CASES]
+OPT_CASES = [(s, n, o) for s, n in CASES for o in (0, 1)]
+OPT_IDS = [f"{s.name}-n{n}-O{o}" for s, n, o in OPT_CASES]
 
 REQUIRED = {
     "vecadd_i32", "vecadd_f32", "saxpy", "scale", "relu", "leaky_relu", "clamp", "abs_diff",
@@ -32,9 +34,10 @@ def test_suite_is_complete():
         assert any(n % s.block for n in s.sizes), s.name
 
 
-@pytest.mark.parametrize("spec,n", CASES, ids=IDS)
-def test_interp_matches_numpy(spec, n):
-    r = suite.run_case(spec, n, ["interp"])
+@pytest.mark.parametrize("spec,n,opt", OPT_CASES, ids=OPT_IDS)
+def test_interp_matches_numpy(spec, n, opt):
+    # -O1 must not change any result: the optimizer is checked against the same oracle.
+    r = suite.run_case(spec, n, ["interp"], opt)
     assert r.paths["interp"] == "ok", r.paths["interp"]
 
 
@@ -50,9 +53,9 @@ def test_cuda_twin_compiles(spec, tmp_path):
 
 
 @pytest.mark.gpu
-@pytest.mark.parametrize("spec,n", CASES, ids=IDS)
-def test_gpu_and_nvrtc_match(spec, n):
-    r = suite.run_case(spec, n, ["interp", "gpu", "nvrtc"])
+@pytest.mark.parametrize("spec,n,opt", OPT_CASES, ids=OPT_IDS)
+def test_gpu_and_nvrtc_match(spec, n, opt):
+    r = suite.run_case(spec, n, ["interp", "gpu", "nvrtc"], opt)
     assert all(v == "ok" for v in r.paths.values()), r.paths
 
 

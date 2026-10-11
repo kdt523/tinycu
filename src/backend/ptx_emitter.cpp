@@ -72,9 +72,18 @@ public:
   KernelEmitter(const Function &fn, const Options &opts) : fn_(fn), opts_(opts) {}
 
   std::string run() {
-    // Assign PTX registers (1-based, like nvcc) in vreg order: deterministic.
+    // Assign PTX registers (1-based, like nvcc) in vreg order: deterministic. Only vregs that
+    // still occur in the code get one (passes such as DCE leave unused entries in the table).
+    std::vector<bool> used(fn_.vregs.size(), false);
+    for (const auto &bb : fn_.blocks)
+      for (const Inst &in : bb->insts)
+        for (const Value *v : {&in.dst, &in.a, &in.b})
+          if (v->isVReg() && v->reg < used.size())
+            used[v->reg] = true;
     regs_.resize(fn_.vregs.size());
     for (size_t i = 0; i < fn_.vregs.size(); ++i) {
+      if (!used[i])
+        continue;
       RegClass c = classOf(fn_.vregs[i].type);
       regs_[i] = prefix(c) + std::to_string(++count_[static_cast<int>(c)]);
     }

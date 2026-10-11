@@ -2,6 +2,7 @@
 //
 //   tinycu <input.tc> [-o out] [-O0|-O1] [--emit=ast|ir|ptx] [--dump-after=<pass>]
 //          [--interp --grid N --block M --args args.json [--kernel name]]
+//          [--passes=a,b] [--disable-pass=a] [--stats]
 //          [--verify-each|--no-verify-each] [--sm=sm_75] [--no-ptx-comments]
 //          [--version] [--help]
 //
@@ -10,6 +11,7 @@
 
 #include "tinycu/interp.h"
 #include "tinycu/ir.h"
+#include "tinycu/opt.h"
 #include "tinycu/parser.h"
 #include "tinycu/ptx.h"
 #include "tinycu/sema.h"
@@ -41,6 +43,10 @@ struct Options {
   int optLevel = 0;
   Emit emit = Emit::Ptx;
   std::string dumpAfter;
+  std::vector<std::string> passes; ///< --passes= (overrides the -O level)
+  bool customPasses = false;
+  std::vector<std::string> disabled;
+  bool stats = false;
   bool interp = false;
   long grid = 1;
   long block = 1;
@@ -56,12 +62,14 @@ struct Options {
 };
 
 void printUsage(std::FILE *out) {
-  std::fprintf(out, "usage: tinycu <input.tc> [-o out] [-O0|-O1] [--emit=ast|ir|ptx]\n"
-                    "              [--dump-after=<pass>] [--verify-each|--no-verify-each]\n"
-                    "              [--interp --grid N --block M --args a.json [--kernel name]]\n"
-                    "              [--sm=sm_75] [--no-ptx-comments] [--version] [--help]\n"
-                    "exit codes: 0 ok, 1 compile error, 2 usage error, 3 internal error,\n"
-                    "            4 kernel runtime error (interpreter)\n");
+  std::fprintf(out,
+               "usage: tinycu <input.tc> [-o out] [-O0|-O1] [--emit=ast|ir|ptx]\n"
+               "              [--passes=a,b] [--disable-pass=a] [--dump-after=<pass>] [--stats]\n"
+               "              [--verify-each|--no-verify-each]\n"
+               "              [--interp --grid N --block M --args a.json [--kernel name]]\n"
+               "              [--sm=sm_75] [--no-ptx-comments] [--version] [--help]\n"
+               "exit codes: 0 ok, 1 compile error, 2 usage error, 3 internal error,\n"
+               "            4 kernel runtime error (interpreter)\n");
 }
 
 int usageError(const std::string &msg) {
@@ -116,6 +124,14 @@ int parseArgs(const std::vector<std::string> &args, Options &opts) {
         return usageError("unknown --emit kind '" + v + "'");
     } else if (startsWith(a, "--dump-after=")) {
       opts.dumpAfter = a.substr(13);
+    } else if (startsWith(a, "--passes=")) {
+      opts.passes = tinycu::opt::splitList(a.substr(9));
+      opts.customPasses = true;
+    } else if (startsWith(a, "--disable-pass=")) {
+      for (const std::string &p : tinycu::opt::splitList(a.substr(15)))
+        opts.disabled.push_back(p);
+    } else if (a == "--stats") {
+      opts.stats = true;
     } else if (a == "--verify-each") {
       opts.verifyEach = true;
     } else if (a == "--no-verify-each") {
@@ -148,6 +164,14 @@ int parseArgs(const std::vector<std::string> &args, Options &opts) {
   }
   if (opts.input.empty())
     return usageError("no input file");
+  for (const std::string &p : opts.passes)
+    if (!tinycu::opt::createPass(p))
+      return usageError("unknown pass '" + p + "' (known: constfold, copyprop, simplifycfg, dce)");
+  for (const std::string &p : opts.disabled)
+    if (!tinycu::opt::createPass(p))
+      return usageError("unknown pass '" + p + "' in --disable-pass");
+  if (!opts.dumpAfter.empty() && !tinycu::opt::createPass(opts.dumpAfter))
+    return usageError("unknown pass '" + opts.dumpAfter + "' in --dump-after");
   if (opts.interp) {
     if (opts.argsJson.empty())
       return usageError("'--interp' requires '--args <file.json>'");
@@ -260,6 +284,31 @@ int compile(const Options &opts) {
   std::unique_ptr<tinycu::ir::Module> module = tinycu::lowerProgram(*prog);
   if (opts.verifyEach && !verifyModule(*module, "lowering"))
     return kInternalError;
+
+  // Optimization: -O1 runs the standard pipeline; --passes= runs a custom list instead.
+  std::vector<std::string> pipeline =
+      opts.customPasses
+          ? opts.passes
+          : (opts.optLevel >= 1 ? tinycu::opt::o1Pipeline() : std::vector<std::string>{});
+  if (!pipeline.empty()) {
+    tinycu::opt::PipelineConfig pc;
+    pc.passes = pipeline;
+    pc.disabled = opts.disabled;
+    pc.dumpAfter = opts.dumpAfter;
+    pc.verifyEach = opts.verifyEach;
+    pc.dump = &std::cerr;
+    tinycu::opt::PipelineResult pr = tinycu::opt::runPipeline(*module, pc);
+    if (!pr.ok) {
+      std::fprintf(stderr, "tinycu: internal error: %s\n", pr.error.c_str());
+      return kInternalError;
+    }
+    if (opts.stats) {
+      std::fprintf(stderr, "pass statistics (changes):\n");
+      for (const auto &s : pr.stats)
+        std::fprintf(stderr, "  %-12s %u\n", s.first.c_str(), s.second);
+      std::fprintf(stderr, "  iterations   %u\n", pr.maxIterationsUsed);
+    }
+  }
 
   if (opts.interp)
     return interpret(opts, *module);

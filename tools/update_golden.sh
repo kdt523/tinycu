@@ -10,5 +10,10 @@ for tc in tests/golden/*.tc; do
   for k in $KINDS; do
     "$BUILD/tinycu" "$tc" --emit="$k" > "${tc%.tc}.$k"
   done
+  # Pass dumps: regenerate every existing <name>.dump-<pass> snapshot.
+  for dump in "${tc%.tc}".dump-*; do
+    [ -e "$dump" ] || continue
+    "$BUILD/tinycu" "$tc" -O1 --dump-after="${dump##*.dump-}" --emit=ir 2> "$dump" > /dev/null
+  done
 done
 git --no-pager diff --stat -- tests/golden || true

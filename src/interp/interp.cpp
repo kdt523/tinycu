@@ -4,6 +4,7 @@
 // buffer. An address (i64) encodes (buffer id, byte offset) so that loads/stores can be checked
 // precisely; computing an out-of-range address is fine, *accessing* it is an error.
 #include "tinycu/interp.h"
+#include "tinycu/semantics.h"
 
 #include <climits>
 #include <cmath>
@@ -24,38 +25,12 @@ uint64_t baseAddress(uint32_t bufId) {
   return (static_cast<uint64_t>(bufId) << kBufShift) + kOffsetBias;
 }
 
-float asF32(uint64_t bits) {
-  uint32_t b = static_cast<uint32_t>(bits);
-  float f;
-  std::memcpy(&f, &b, sizeof f);
-  return f;
-}
 uint64_t fromF32(float f) {
   uint32_t b;
   std::memcpy(&b, &f, sizeof b);
   return b;
 }
 int32_t asI32(uint64_t bits) { return static_cast<int32_t>(static_cast<uint32_t>(bits)); }
-
-// PTX min.f32/max.f32: a NaN operand yields the other operand; -0 < +0.
-float fmin32(float a, float b) {
-  if (std::isnan(a))
-    return b;
-  if (std::isnan(b))
-    return a;
-  if (a == b)
-    return std::signbit(a) ? a : b;
-  return a < b ? a : b;
-}
-float fmax32(float a, float b) {
-  if (std::isnan(a))
-    return b;
-  if (std::isnan(b))
-    return a;
-  if (a == b)
-    return std::signbit(a) ? b : a;
-  return a > b ? a : b;
-}
 
 enum class ThreadState { Running, AtBarrier, Done };
 
@@ -255,90 +230,29 @@ private:
       const Inst &in = t.bb->insts[t.ip];
       uint64_t a = in.a.isNone() ? 0 : get(t, in.a);
       uint64_t b = in.b.isNone() ? 0 : get(t, in.b);
-      bool f32 = in.type == IRType::F32;
       uint64_t r = 0;
-      uint32_t ua = static_cast<uint32_t>(a), ub = static_cast<uint32_t>(b);
+
+      if (in.op == Op::Mov) { // may carry 64-bit pointers/addresses
+        r = a;
+      } else if (isPureOp(in.op)) {
+        // Same function as the constant folder: execution and folding cannot disagree.
+        uint32_t out = 0;
+        switch (evalPure(in.op, in.type, static_cast<uint32_t>(a), static_cast<uint32_t>(b), out)) {
+        case EvalStatus::Ok:
+          break;
+        case EvalStatus::DivZero:
+          return error(t, "div0", "integer division by zero");
+        case EvalStatus::DivOverflow:
+          return error(t, "div_overflow", "integer overflow in division (INT_MIN / -1)");
+        case EvalStatus::BadCvt:
+          return error(t, "bad_cvt", "float-to-int conversion of an out-of-range value");
+        }
+        r = out;
+      }
 
       switch (in.op) {
-      case Op::Add:
-        r = f32 ? fromF32(asF32(a) + asF32(b)) : static_cast<uint32_t>(ua + ub);
-        break;
-      case Op::Sub:
-        r = f32 ? fromF32(asF32(a) - asF32(b)) : static_cast<uint32_t>(ua - ub);
-        break;
-      case Op::Mul:
-        r = f32 ? fromF32(asF32(a) * asF32(b)) : static_cast<uint32_t>(ua * ub);
-        break;
-      case Op::Div:
-      case Op::Rem:
-        if (f32) {
-          r = fromF32(asF32(a) / asF32(b));
-        } else {
-          int32_t x = asI32(a), y = asI32(b);
-          if (y == 0)
-            return error(t, "div0", "integer division by zero");
-          if (x == INT_MIN && y == -1)
-            return error(t, "div_overflow", "integer overflow in division (INT_MIN / -1)");
-          r = static_cast<uint32_t>(in.op == Op::Div ? x / y : x % y);
-        }
-        break;
-      case Op::Neg:
-        r = f32 ? fromF32(-asF32(a)) : static_cast<uint32_t>(0u - ua);
-        break;
-      case Op::And:
-        r = (a & b) & 1;
-        break;
-      case Op::Or:
-        r = (a | b) & 1;
-        break;
-      case Op::Not:
-        r = (a & 1) ^ 1;
-        break;
-      case Op::CmpEq:
-        r = f32 ? asF32(a) == asF32(b) : asI32(a) == asI32(b);
-        break;
-      case Op::CmpNe: // C semantics: NaN != x is true
-        r = f32 ? !(asF32(a) == asF32(b)) : asI32(a) != asI32(b);
-        break;
-      case Op::CmpLt:
-        r = f32 ? asF32(a) < asF32(b) : asI32(a) < asI32(b);
-        break;
-      case Op::CmpLe:
-        r = f32 ? asF32(a) <= asF32(b) : asI32(a) <= asI32(b);
-        break;
-      case Op::CmpGt:
-        r = f32 ? asF32(a) > asF32(b) : asI32(a) > asI32(b);
-        break;
-      case Op::CmpGe:
-        r = f32 ? asF32(a) >= asF32(b) : asI32(a) >= asI32(b);
-        break;
-      case Op::CvtF32I32:
-        r = fromF32(static_cast<float>(asI32(a)));
-        break;
-      case Op::CvtI32F32: {
-        float x = asF32(a);
-        if (std::isnan(x) || !(x >= -2147483648.0f && x < 2147483648.0f))
-          return error(t, "bad_cvt", "float-to-int conversion of an out-of-range value");
-        r = static_cast<uint32_t>(static_cast<int32_t>(std::trunc(x)));
-        break;
-      }
-      case Op::Min:
-        r = f32 ? fromF32(fmin32(asF32(a), asF32(b)))
-                : static_cast<uint32_t>(asI32(a) < asI32(b) ? asI32(a) : asI32(b));
-        break;
-      case Op::Max:
-        r = f32 ? fromF32(fmax32(asF32(a), asF32(b)))
-                : static_cast<uint32_t>(asI32(a) > asI32(b) ? asI32(a) : asI32(b));
-        break;
-      case Op::Abs: // abs.s32(INT_MIN) == INT_MIN, as on the GPU
-        r = f32 ? fromF32(std::fabs(asF32(a))) : static_cast<uint32_t>(asI32(a) < 0 ? 0u - ua : ua);
-        break;
-      case Op::Sqrt:
-        r = fromF32(std::sqrt(asF32(a)));
-        break;
-      case Op::Mov:
-        r = a;
-        break;
+      default:
+        break; // pure ops: handled above
       case Op::Addr:
         r = a + static_cast<uint64_t>(static_cast<int64_t>(asI32(b)) * in.aux);
         break;

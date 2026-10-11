@@ -3,7 +3,8 @@
 
   run_file_test.py golden <tinycu> <file.tc>
       For every snapshot <file>.{ast,ir,ptx} that exists, run `tinycu --emit=<ext>`
-      and require byte-identical output.
+      and require byte-identical output. For every <file>.dump-<pass>, run
+      `tinycu -O1 --dump-after=<pass> --emit=ir` and compare its stderr (the pass dumps).
   run_file_test.py error <tinycu> <file.tc>
       The first lines of the file contain `// EXPECT: L:C: message` (an error) and/or
       `// EXPECT-WARN: L:C: message` (a warning). Each must appear in stderr as
@@ -38,6 +39,19 @@ def golden(tinycu, tc):
             diff = difflib.unified_diff(expected.splitlines(True), r.stdout.splitlines(True),
                                         str(expected_path), "actual")
             print(f"FAIL {tc} --emit={ext}: output differs from snapshot\n" + "".join(diff))
+            return 1
+    for dump in sorted(tc.parent.glob(tc.stem + ".dump-*")):
+        checked += 1
+        pass_name = dump.suffix[len(".dump-"):]
+        r = run([tinycu, str(tc), "-O1", f"--dump-after={pass_name}", "--emit=ir"])
+        if r.returncode != 0:
+            print(f"FAIL {tc} --dump-after={pass_name}: exit {r.returncode}\n{r.stderr}")
+            return 1
+        if r.stderr != dump.read_text():
+            import difflib
+            diff = difflib.unified_diff(dump.read_text().splitlines(True),
+                                        r.stderr.splitlines(True), str(dump), "actual")
+            print(f"FAIL {tc} --dump-after={pass_name}: differs from snapshot\n" + "".join(diff))
             return 1
     if checked == 0:
         print(f"FAIL {tc}: no snapshot found (run tools/update_golden.sh)")

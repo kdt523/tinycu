@@ -1,0 +1,58 @@
+; *** IR after constfold (iteration 1) ***
+kernel saxpy(f32 %a, ptr %x, ptr %y, i32 %n) {
+entry:
+  %a:f32 = param 0
+  %x:ptr = param 1
+  %y:ptr = param 2
+  %n:i32 = param 3
+  %5:i32 = sreg ctaid
+  %6:i32 = sreg ntid
+  %7:i32 = mul %5, %6
+  %8:i32 = sreg tid
+  %9:i32 = add %7, %8
+  %i:i32 = mov %9
+  %10:i1 = cmp.lt %i, %n
+  condbr %10, if.then.1, if.end.1
+if.then.1:
+  %11:i64 = addr %y, %i, 4
+  %12:i64 = addr %x, %i, 4
+  %13:f32 = load.global %12
+  %14:f32 = mul %a, %13
+  %15:i64 = addr %y, %i, 4
+  %16:f32 = load.global %15
+  %17:f32 = add %14, %16
+  store.global %11, %17
+  br if.end.1
+if.end.1:
+  br exit
+exit:
+  ret
+}
+; *** IR after constfold (iteration 2) ***
+kernel saxpy(f32 %a, ptr %x, ptr %y, i32 %n) {
+entry:
+  %a:f32 = param 0
+  %x:ptr = param 1
+  %y:ptr = param 2
+  %n:i32 = param 3
+  %5:i32 = sreg ctaid
+  %6:i32 = sreg ntid
+  %7:i32 = mul %5, %6
+  %8:i32 = sreg tid
+  %9:i32 = add %7, %8
+  %i:i32 = mov %9
+  %10:i1 = cmp.lt %9, %n
+  condbr %10, if.then.1, exit
+if.then.1:
+  %11:i64 = addr %y, %i, 4
+  %12:i64 = addr %x, %i, 4
+  %13:f32 = load.global %12
+  %14:f32 = mul %a, %13
+  %15:i64 = addr %y, %i, 4
+  %16:f32 = load.global %15
+  %17:f32 = add %14, %16
+  store.global %11, %17
+  br exit
+exit:
+  ret
+}

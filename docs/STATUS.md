@@ -8,7 +8,7 @@
 | 03 | ir-interp | done | v0.3 |
 | 04 | ptx-backend | done | v0.4 |
 | 05 | gpu-runtime | done | v0.5 |
-| 06 | optimizer | todo | |
+| 06 | optimizer | done | v0.6 |
 | 07 | verification | todo | |
 | 08 | release | todo | |
 
@@ -52,3 +52,8 @@
   **A local GPU exists** (RTX 3050 Laptop, sm_86, via WSL2): 108/108 cases bit-exact on
   numpy == interp == gpu == nvrtc (results/kernel_suite.md); 130 GPU pytest + 153 non-GPU pytest.
   Pending kd: running the notebook on Colab's T4 (sm_75).
+- **Phase 6**: pass manager (`-O1`, `--passes`, `--disable-pass`, `--dump-after`, `--stats`,
+  `--verify-each`), constfold (shared `evalPure` with the interpreter) + algebraic simplification,
+  copyprop, dce, simplifycfg; IR text parser for tests; `tcharness.optstats` →
+  `results/opt_impact.md`. Tests: 44 optimizer unit tests, 5 pass-dump goldens, all 22 kernels
+  at -O1 == -O0 bit-exact on interp + GPU + NVRTC (108/108), ptxas accepts every program at -O1.

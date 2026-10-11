@@ -41,10 +41,17 @@ One line per decision with the reason. Newest at the bottom of each section.
 - **The `mul.wide` index is always a register** (immediates are moved first): uniform code; ptxas folds it anyway.
 - **SASS instruction counts exclude NOPs and the trailing self-`BRA`**: those are alignment padding, not code; counting them would inflate every number.
 
-## Optimizer (to be honoured in phase 6)
-- **Constant folding uses exactly the interpreter's semantics**: wrapping i32 via `uint32_t`, no folding of div/rem by 0 or `INT_MIN / -1`, f32 with `float` math, `!=` true on NaN. A unit test checks NaN `!=` folding against the interpreter.
-- **Never rewrite `!(a < b)` into `a >= b` for floats** (they differ on NaN); fine for ints. Needs a comment in the code and a test.
-- **No `x * 0 → 0` / `x - x → 0` for floats**: NaN, inf and −0 break these identities.
+## Optimizer
+- **Interpreter and constant folder share one function, `ir::evalPure`**: folding can never disagree with execution. Trade-off: a bug in evalPure would affect both identically; the GPU and nvcc-twin paths are the independent check.
+- **Constant folding never folds UB or doubtful cases**: div/rem by 0, `INT_MIN / -1`, out-of-range float→int, sqrt of a negative number; the run time reports them instead.
+- **Never rewrite `!(a < b)` into `a >= b`** (wrong for floats with NaN); TinyCU does no comparison rewriting at all (comment in constfold.cpp, test `ConstFold.FloatCompareIsNeverInverted`).
+- **Float identities limited to exact ones** (`x + -0.0`, `x - 0.0`, `x * 1.0`, `x / 1.0`); `x + 0.0`, `x * 0.0`, `x - x` are int-only: NaN, inf and −0 break them.
+- **Local (per-block) constant and copy propagation**: obviously correct on non-SSA IR (a redefinition kills the fact); global versions need reaching definitions and are future work.
+- **DCE = "no use anywhere"**: the zero-initialization `mov %x, 0` is removed only when %x is never read, which satisfies "keep it unless provably written before every read".
+- **Pipeline iterates to a fixpoint (max 10)**: one pass's output enables another's (fold → constant branch → unreachable block → dead definitions).
+- **The PTX emitter declares only registers that still occur in the code**: DCE leaves unused entries in the vreg table; declaring them inflated the register count.
+- **IR text parser exists only for tests**: optimizer unit tests are written as readable before/after IR text.
+- **Optimizer impact is reported at PTX and SASS level as measured** (−4.2% PTX instructions, −1.5% SASS, ptxas registers unchanged at first measurement): ptxas performs the same cleanups, which is itself the interesting result.
 
 ## Runtime & kernel suite
 - **Driver API for the C++ runner** (not the Runtime API): PTX produced at run time must be loaded as a module; the JIT log is available via `CU_JIT_ERROR_LOG_BUFFER`.

@@ -1,0 +1,268 @@
+; *** IR after constfold (iteration 1) ***
+kernel imm_operands(ptr %o, ptr %f, i32 %x, f32 %y) {
+entry:
+  %o:ptr = param 0
+  %f:ptr = param 1
+  %x:i32 = param 2
+  %y:f32 = param 3
+  %4:i64 = addr %o, 0, 4
+  %5:i32 = sub 1, %x
+  store.global %4, %5
+  %6:i64 = addr %o, 1, 4
+  %7:i32 = div 100, %x
+  %8:i32 = rem 7, %x
+  %9:i32 = add %7, %8
+  store.global %6, %9
+  %10:i64 = addr %o, 2, 4
+  %11:i32 = min 3, %x
+  %12:i32 = mov -4
+  %13:i32 = max %x, -4
+  %14:i32 = add %11, %13
+  %15:i32 = mov -5
+  %16:i32 = mov 5
+  %17:i32 = add %14, 5
+  %18:i32 = mov -6
+  %19:i32 = add %17, -6
+  store.global %10, %19
+  %20:i64 = addr %f, 0, 4
+  %21:f32 = div 2.0f, %y
+  %22:f32 = mul 1.5f, %y
+  %23:f32 = sub %21, %22
+  store.global %20, %23
+  %24:i64 = addr %f, 1, 4
+  %25:f32 = mov 1.41421354f
+  %26:f32 = mov -0.5f
+  %27:f32 = mov 0.5f
+  %28:f32 = mov 1.91421354f
+  %29:f32 = mov -2.5f
+  %30:f32 = mov -0.585786462f
+  %31:f32 = min 1.0f, %y
+  %32:f32 = add -0.585786462f, %31
+  %33:f32 = mov 3.0f
+  %34:f32 = add %32, 3.0f
+  store.global %24, %34
+  %35:i64 = addr %f, 2, 4
+  %36:f32 = cvt.f32.i32 %x
+  %37:f32 = mul %36, 0.100000001f
+  store.global %35, %37
+  %38:i64 = addr %o, 3, 4
+  %39:i32 = mov 2
+  store.global %38, 2
+  %42:i1 = cmp.lt 5, %x
+  %41:i1 = mov %42
+  condbr %42, and.rhs.3, and.end.3
+and.rhs.3:
+  %43:i1 = cmp.ne %y, 0.0f
+  %41:i1 = mov %43
+  br and.end.3
+and.end.3:
+  %40:i1 = mov %41
+  condbr %41, or.end.2, or.rhs.2
+or.rhs.2:
+  %44:i1 = cmp.ge 1.0f, %y
+  %40:i1 = mov %44
+  br or.end.2
+or.end.2:
+  condbr %40, if.then.1, if.end.1
+if.then.1:
+  %45:i64 = addr %o, 4, 4
+  store.global %45, 1
+  br if.end.1
+if.end.1:
+  br if.then.4
+if.then.4:
+  %46:i64 = addr %o, 5, 4
+  store.global %46, 2
+  br if.end.4
+if.end.4:
+  br while.cond.5
+while.cond.5:
+  br while.end.5
+while.body.5:
+  %47:i64 = addr %o, 6, 4
+  store.global %47, 3
+  br while.cond.5
+while.end.5:
+  %48:i1 = mov true
+  br and.rhs.7
+and.rhs.7:
+  %49:i1 = cmp.eq %x, 1
+  %48:i1 = mov %49
+  br and.end.7
+and.end.7:
+  %50:i1 = not %48
+  condbr %50, if.then.6, if.end.6
+if.then.6:
+  %51:i64 = addr %o, 7, 4
+  store.global %51, 4
+  br if.end.6
+if.end.6:
+  %52:i1 = cmp.ne %y, %y
+  condbr %52, if.then.8, if.end.8
+if.then.8:
+  %53:i64 = addr %o, 8, 4
+  store.global %53, 5
+  br if.end.8
+if.end.8:
+  br exit
+exit:
+  ret
+}
+; *** IR after constfold (iteration 2) ***
+kernel imm_operands(ptr %o, ptr %f, i32 %x, f32 %y) {
+entry:
+  %o:ptr = param 0
+  %f:ptr = param 1
+  %x:i32 = param 2
+  %y:f32 = param 3
+  %4:i64 = addr %o, 0, 4
+  %5:i32 = sub 1, %x
+  store.global %4, %5
+  %6:i64 = addr %o, 1, 4
+  %7:i32 = div 100, %x
+  %8:i32 = rem 7, %x
+  %9:i32 = add %7, %8
+  store.global %6, %9
+  %10:i64 = addr %o, 2, 4
+  %11:i32 = min 3, %x
+  %13:i32 = max %x, -4
+  %14:i32 = add %11, %13
+  %17:i32 = add %14, 5
+  %19:i32 = add %17, -6
+  store.global %10, %19
+  %20:i64 = addr %f, 0, 4
+  %21:f32 = div 2.0f, %y
+  %22:f32 = mul 1.5f, %y
+  %23:f32 = sub %21, %22
+  store.global %20, %23
+  %24:i64 = addr %f, 1, 4
+  %31:f32 = min 1.0f, %y
+  %32:f32 = add -0.585786462f, %31
+  %34:f32 = add %32, 3.0f
+  store.global %24, %34
+  %35:i64 = addr %f, 2, 4
+  %36:f32 = cvt.f32.i32 %x
+  %37:f32 = mul %36, 0.100000001f
+  store.global %35, %37
+  %38:i64 = addr %o, 3, 4
+  store.global %38, 2
+  %42:i1 = cmp.lt 5, %x
+  %41:i1 = mov %42
+  condbr %42, and.rhs.3, and.end.3
+and.rhs.3:
+  %43:i1 = cmp.ne %y, 0.0f
+  %41:i1 = mov %43
+  br and.end.3
+and.end.3:
+  %40:i1 = mov %41
+  condbr %41, or.end.2, or.rhs.2
+or.rhs.2:
+  %44:i1 = cmp.ge 1.0f, %y
+  %40:i1 = mov %44
+  br or.end.2
+or.end.2:
+  condbr %40, if.then.1, if.then.4
+if.then.1:
+  %45:i64 = addr %o, 4, 4
+  store.global %45, 1
+  br if.then.4
+if.then.4:
+  %46:i64 = addr %o, 5, 4
+  store.global %46, 2
+  %48:i1 = mov true
+  %49:i1 = cmp.eq %x, 1
+  %48:i1 = mov %49
+  %50:i1 = not %48
+  condbr %50, if.then.6, if.end.6
+if.then.6:
+  %51:i64 = addr %o, 7, 4
+  store.global %51, 4
+  br if.end.6
+if.end.6:
+  %52:i1 = cmp.ne %y, %y
+  condbr %52, if.then.8, exit
+if.then.8:
+  %53:i64 = addr %o, 8, 4
+  store.global %53, 5
+  br exit
+exit:
+  ret
+}
+; *** IR after constfold (iteration 3) ***
+kernel imm_operands(ptr %o, ptr %f, i32 %x, f32 %y) {
+entry:
+  %o:ptr = param 0
+  %f:ptr = param 1
+  %x:i32 = param 2
+  %y:f32 = param 3
+  %4:i64 = addr %o, 0, 4
+  %5:i32 = sub 1, %x
+  store.global %4, %5
+  %6:i64 = addr %o, 1, 4
+  %7:i32 = div 100, %x
+  %8:i32 = rem 7, %x
+  %9:i32 = add %7, %8
+  store.global %6, %9
+  %10:i64 = addr %o, 2, 4
+  %11:i32 = min 3, %x
+  %13:i32 = max %x, -4
+  %14:i32 = add %11, %13
+  %17:i32 = add %14, 5
+  %19:i32 = add %17, -6
+  store.global %10, %19
+  %20:i64 = addr %f, 0, 4
+  %21:f32 = div 2.0f, %y
+  %22:f32 = mul 1.5f, %y
+  %23:f32 = sub %21, %22
+  store.global %20, %23
+  %24:i64 = addr %f, 1, 4
+  %31:f32 = min 1.0f, %y
+  %32:f32 = add -0.585786462f, %31
+  %34:f32 = add %32, 3.0f
+  store.global %24, %34
+  %35:i64 = addr %f, 2, 4
+  %36:f32 = cvt.f32.i32 %x
+  %37:f32 = mul %36, 0.100000001f
+  store.global %35, %37
+  %38:i64 = addr %o, 3, 4
+  store.global %38, 2
+  %42:i1 = cmp.lt 5, %x
+  %41:i1 = mov %42
+  condbr %42, and.rhs.3, and.end.3
+and.rhs.3:
+  %43:i1 = cmp.ne %y, 0.0f
+  %41:i1 = mov %43
+  br and.end.3
+and.end.3:
+  %40:i1 = mov %41
+  condbr %41, or.end.2, or.rhs.2
+or.rhs.2:
+  %44:i1 = cmp.ge 1.0f, %y
+  %40:i1 = mov %44
+  br or.end.2
+or.end.2:
+  condbr %40, if.then.1, if.then.4
+if.then.1:
+  %45:i64 = addr %o, 4, 4
+  store.global %45, 1
+  br if.then.4
+if.then.4:
+  %46:i64 = addr %o, 5, 4
+  store.global %46, 2
+  %49:i1 = cmp.eq %x, 1
+  %50:i1 = not %49
+  condbr %50, if.then.6, if.end.6
+if.then.6:
+  %51:i64 = addr %o, 7, 4
+  store.global %51, 4
+  br if.end.6
+if.end.6:
+  %52:i1 = cmp.ne %y, %y
+  condbr %52, if.then.8, exit
+if.then.8:
+  %53:i64 = addr %o, 8, 4
+  store.global %53, 5
+  br exit
+exit:
+  ret
+}
