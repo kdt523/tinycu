@@ -146,3 +146,74 @@ false miscompile report.
 any interleaving for race-free kernels. With `__syncthreads`, the interpreter runs each thread up
 to the barrier, then releases all of them. That is exactly the guarantee CUDA gives. Threads that
 skip a barrier others are waiting at are *barrier divergence*: UB in CUDA, an error here.
+
+## Phase 4 — PTX backend
+
+**Reading nvcc's PTX for vecadd** (`nvcc -ptx -arch=sm_75 vecadd.cu`, CUDA 12.6):
+```
+.visible .entry vecadd(.param .u64 vecadd_param_0, ..., .param .u32 vecadd_param_3)
+ld.param.u64    %rd1, [vecadd_param_0];   // kernel args live in the .param state space
+mov.u32         %r3, %ctaid.x;            // special registers: %tid, %ctaid, %ntid, %nctaid
+mad.lo.s32      %r1, %r3, %r4, %r5;       // blockIdx*blockDim + threadIdx (int mad: exact)
+setp.ge.s32     %p1, %r1, %r2;            // compare -> predicate register
+@%p1 bra        $L__BB0_2;                // predicated branch (guard i < n)
+cvta.to.global.u64 %rd4, %rd1;            // generic address -> global window
+mul.wide.s32    %rd5, %r1, 4;             // 32x32 -> 64-bit multiply: byte offset
+add.s64         %rd6, %rd4, %rd5;
+ld.global.u32   %r6, [%rd8];              // state space is part of the opcode
+st.global.u32   [%rd10], %r8;
+```
+- **State spaces:** `.reg` (registers), `.param` (kernel arguments, read via `ld.param`),
+  `.global` (device memory), `.shared` (per-block on-chip memory), plus `.local`, `.const` and
+  `.tex`. A pointer is just a 64-bit integer. Which memory it points into is decided by the
+  state space of the load or store.
+- **`.entry`** is a kernel (callable from the host); `.func` would be a device function.
+  `.visible` makes the symbol exported, so the driver can find it by name.
+
+**PTX vs SASS.** PTX is a *virtual* ISA: stable, documented, with unlimited typed virtual
+registers, and forward-compatible. SASS is the real machine code of one GPU generation
+(`sm_75` = Turing). `ptxas` (or the driver's JIT) translates PTX to SASS. It does register
+allocation, instruction scheduling, and its own optimizations. That is why TinyCU doesn't need a
+register allocator: it emits one virtual register per IR value and lets ptxas map them onto 255
+physical registers, spilling to local memory if needed (`ptxas -v` reports spill bytes).
+
+**Predication vs branching.** `setp` writes a predicate, and any instruction can be guarded
+`@%p` / `@!%p`. Short `if`s can be fully predicated (no branch). TinyCU always branches and
+leaves if-conversion to ptxas, which does it. In the saxpy SASS, the guard became `@P0 EXIT`.
+
+**Warp divergence and `bra.uni`.** A warp runs 32 threads in lockstep (SIMT). When a
+conditional branch splits a warp, both paths execute serially with threads masked off, and they
+reconverge after. `bra.uni` *promises* the branch is non-divergent (all active threads go the
+same way), which lets the hardware skip the divergence handling. That holds for unconditional
+jumps, so TinyCU uses `bra.uni` only there and plain `@%p bra` for conditional branches.
+
+**What `.rn` means.** It is the IEEE round-to-nearest-even rounding mode. Specifying it
+explicitly on `add/sub/mul.f32` also forbids ptxas from fusing a multiply and an add into an FMA,
+which rounds once instead of twice and would break bit-exactness with the interpreter.
+`div.rn.f32` and `sqrt.rn.f32` are the IEEE-correct versions; plain `div.f32` is not valid PTX
+without `.approx` or `.full`.
+
+**Float compare ordering.** `setp.lt.f32` is *ordered*: false if either operand is NaN.
+`setp.neu.f32` is *unordered*: true if either operand is NaN. C's `!=` is true for NaN, so it
+maps to `neu`. Using `setp.ne.f32` would silently differ from the interpreter on NaN inputs.
+
+**Generic vs global addressing.** A kernel pointer argument is a *generic* address that can point
+into global, shared or local memory. `cvta.to.global` converts it to a global-window address, so
+the code can use `ld.global`/`st.global`, which skip the hardware's generic-to-specific address
+check.
+
+**cubin = ELF.** `cuobjdump -elf` on a TinyCU cubin shows:
+- `.text.<kernel>`: the SASS;
+- `.nv.info` and `.nv.info.<kernel>`: attributes such as register count, parameter layout and
+  barrier usage;
+- `.nv.constant0.<kernel>`: the kernel parameters are passed in constant bank 0, so SASS reads
+  `c[0x0][0x160]` and so on;
+- `.nv.shared.<kernel>`: a NOBITS section sized to the shared arrays;
+- `.symtab`, `.strtab`, `.shstrtab`, `.nv.callgraph` and `.nv.rel.action`.
+
+The PTXAS team's output is exactly this object file.
+
+**JIT and forward compatibility.** A fatbinary carries cubins for known GPUs plus PTX. On a newer
+GPU with no matching cubin, the driver JIT-compiles the PTX with its built-in ptxas. TinyCU
+targets PTX ISA 7.0, which any CUDA 11+ driver accepts, so the same `.ptx` loads on Colab's T4
+through `cuModuleLoadDataEx` without an offline ptxas step.

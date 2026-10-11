@@ -48,6 +48,22 @@ jobs:
         with:
           method: network
           sub-packages: '["nvcc"]'
-      - name: ptxas available
-        run: ptxas --version
-      # Phase 4 fills this in: compile every test program and run ptxas -arch=sm_75.
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - name: Build tinycu
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTINYCU_BUILD_RUNTIME=OFF -DBUILD_TESTING=OFF
+          cmake --build build
+      - name: ptxas accepts every test program (-O0 and -O1)
+        run: |
+          ptxas --version
+          tools/ptx_validate.sh build/tinycu sm_75
+      - name: PTX / SASS statistics
+        env:
+          TINYCU: ${{ github.workspace }}/build/tinycu
+        run: |
+          pip install -e harness
+          python -m tcharness.ptxstats >> "$GITHUB_STEP_SUMMARY"

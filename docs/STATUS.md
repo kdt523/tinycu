@@ -6,7 +6,7 @@
 | 01 | frontend | done | v0.1 |
 | 02 | sema | done | v0.2 |
 | 03 | ir-interp | done | v0.3 |
-| 04 | ptx-backend | todo | |
+| 04 | ptx-backend | done | v0.4 |
 | 05 | gpu-runtime | todo | |
 | 06 | optimizer | todo | |
 | 07 | verification | todo | |
@@ -40,3 +40,8 @@
   23 interpreter unit tests, 20 pytest NumPy bit-exact checks (13 kernels + 1 runtime-error check), 14 IR goldens.
   Decisions: uninitialized locals are 0; f32 `!=` is true for NaN (PTX must use `setp.neu`);
   exit code 4 = kernel runtime error.
+- **Phase 4**: PTX emitter (ISA 7.0, register classes, `.rn` floats, `setp.neu` for f32 `!=`,
+  hex f32 immediates, shared memory, barriers, fall-through branches, variable-name comments),
+  `tools/ptx_check.sh`, `tools/ptx_validate.sh` (CI job), `python -m tcharness.ptxstats`.
+  ptxas sm_75 accepts every valid test program at -O0 and -O1. Tests: 14 PTX unit tests,
+  15 PTX golden snapshots, new golden `imm_operands.tc`.

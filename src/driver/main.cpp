@@ -2,7 +2,8 @@
 //
 //   tinycu <input.tc> [-o out] [-O0|-O1] [--emit=ast|ir|ptx] [--dump-after=<pass>]
 //          [--interp --grid N --block M --args args.json [--kernel name]]
-//          [--verify-each|--no-verify-each] [--sm=sm_75] [--version] [--help]
+//          [--verify-each|--no-verify-each] [--sm=sm_75] [--no-ptx-comments]
+//          [--version] [--help]
 //
 // Exit codes: 0 ok, 1 compile error, 2 usage error, 3 internal error,
 //             4 kernel runtime error reported by the interpreter.
@@ -10,6 +11,7 @@
 #include "tinycu/interp.h"
 #include "tinycu/ir.h"
 #include "tinycu/parser.h"
+#include "tinycu/ptx.h"
 #include "tinycu/sema.h"
 #include "tinycu/version.h"
 
@@ -50,13 +52,14 @@ struct Options {
   bool verifyEach = true; // default ON in Debug builds
 #endif
   std::string sm = "sm_75";
+  bool ptxComments = true;
 };
 
 void printUsage(std::FILE *out) {
   std::fprintf(out, "usage: tinycu <input.tc> [-o out] [-O0|-O1] [--emit=ast|ir|ptx]\n"
                     "              [--dump-after=<pass>] [--verify-each|--no-verify-each]\n"
                     "              [--interp --grid N --block M --args a.json [--kernel name]]\n"
-                    "              [--sm=sm_75] [--version] [--help]\n"
+                    "              [--sm=sm_75] [--no-ptx-comments] [--version] [--help]\n"
                     "exit codes: 0 ok, 1 compile error, 2 usage error, 3 internal error,\n"
                     "            4 kernel runtime error (interpreter)\n");
 }
@@ -131,6 +134,10 @@ int parseArgs(const std::vector<std::string> &args, Options &opts) {
         return usageError("'--kernel' requires a name");
     } else if (startsWith(a, "--sm=")) {
       opts.sm = a.substr(5);
+      if (opts.sm.rfind("sm_", 0) != 0 || opts.sm.size() < 5)
+        return usageError("'--sm' expects a target like sm_75");
+    } else if (a == "--ptx-comments" || a == "--no-ptx-comments") {
+      opts.ptxComments = a == "--ptx-comments";
     } else if (!a.empty() && a[0] == '-') {
       return usageError("unknown option '" + a + "'");
     } else if (opts.input.empty()) {
@@ -259,8 +266,10 @@ int compile(const Options &opts) {
   if (opts.emit == Emit::Ir)
     return writeOutput(opts, tinycu::ir::printModule(*module));
 
-  std::fprintf(stderr, "tinycu: code generation: not implemented\n");
-  return kInternalError;
+  tinycu::ptx::Options popts;
+  popts.sm = opts.sm;
+  popts.comments = opts.ptxComments;
+  return writeOutput(opts, tinycu::ptx::emitModule(*module, popts));
 }
 
 } // namespace

@@ -1,0 +1,24 @@
+(kernel imm_operands (params (int* o) (float* f) (int x) (float y))
+  (block
+    (assign = (index:int o 0) (-:int 1 x))
+    (assign = (index:int o 1) (+:int (/:int 100 x) (%:int 7 x)))
+    (assign = (index:int o 2) (+:int (+:int (+:int (call:int min 3 x) (call:int max x (-:int 4))) (call:int abs (-:int 5))) (-:int 6)))
+    (assign = (index:float f 0) (-:float (/:float 2.0 y) (*:float 1.5 y)))
+    (assign = (index:float f 1) (+:float (+:float (+:float (+:float (call:float sqrt 2.0) (call:float abs (-:float 0.5))) (-:float 2.5)) (call:float min 1.0 y)) (cast:float 3)))
+    (assign = (index:float f 2) (*:float (cast:float x) 0.1))
+    (assign = (index:int o 3) (cast:int 2.75))
+    (if (||:bool (&&:bool (<:bool 5 x) (!=:bool y 0.0)) (>=:bool 1.0 y))
+      (block
+        (assign = (index:int o 4) 1)))
+    (if true
+      (block
+        (assign = (index:int o 5) 2)))
+    (while false
+      (block
+        (assign = (index:int o 6) 3)))
+    (if (!:bool (&&:bool true (==:bool x 1)))
+      (block
+        (assign = (index:int o 7) 4)))
+    (if (!=:bool y y)
+      (block
+        (assign = (index:int o 8) 5)))))

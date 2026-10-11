@@ -30,6 +30,17 @@ One line per decision with the reason. Newest at the bottom of each section.
 - **Labels `<kind>.<counter>`, blocks appended in source order, f32 immediates printed with `%.9g`**: byte-for-byte deterministic output for golden tests.
 - **Verifier after lowering and after every pass (`--verify-each`, default on in Debug)**: catch malformed IR at the pass that created it.
 
+## Backend
+- **PTX ISA 7.0, `.target` from `--sm` (default sm_75)**: works with every CUDA ≥ 11 driver JIT, including Colab's T4.
+- **One PTX register per IR vreg, no register allocator**: PTX has unlimited virtual registers; ptxas allocates (and reports spills).
+- **`.rn` on every f32 add/sub/mul/div/sqrt**: forbids ptxas FMA contraction; verified in SASS (FMUL+FADD, no FFMA). Needed for bit-exact GPU vs interpreter.
+- **f32 immediates as hex bit patterns (`0f3F800000`)**: no decimal round-trip errors; subnormals and −0 stay exact.
+- **`bra.uni` only for unconditional jumps; conditional branches use `@%p bra`**: `bra.uni` promises non-divergence, which only holds when every thread jumps.
+- **Fall-through branches are omitted, `@!%p bra F` when the true target falls through**: shorter, nvcc-like PTX.
+- **Shared arrays are declared inside the kernel as `__shared_<name>`**: per-kernel scope, no clashes between kernels in one module.
+- **The `mul.wide` index is always a register** (immediates are moved first): uniform code; ptxas folds it anyway.
+- **SASS instruction counts exclude NOPs and the trailing self-`BRA`**: those are alignment padding, not code; counting them would inflate every number.
+
 ## Optimizer (to be honoured in phase 6)
 - **Constant folding uses exactly the interpreter's semantics**: wrapping i32 via `uint32_t`, no folding of div/rem by 0 or `INT_MIN / -1`, f32 with `float` math, `!=` true on NaN. A unit test checks NaN `!=` folding against the interpreter.
 - **Never rewrite `!(a < b)` into `a >= b` for floats** (they differ on NaN); fine for ints. Needs a comment in the code and a test.

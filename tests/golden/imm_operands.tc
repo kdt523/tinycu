@@ -1,0 +1,25 @@
+// Immediates in every operand position: the backend must produce PTX ptxas accepts.
+kernel imm_operands(int* o, float* f, int x, float y) {
+  o[0] = 1 - x;
+  o[1] = 100 / x + 7 % x;
+  o[2] = min(3, x) + max(x, -4) + abs(-5) + -(6);
+  f[0] = 2.0 / y - 1.5 * y;
+  f[1] = sqrt(2.0) + abs(-0.5) + -(2.5) + min(1.0, y) + (float)3;
+  f[2] = (float)x * 0.1;
+  o[3] = (int)2.75;
+  if (5 < x && y != 0.0 || 1.0 >= y) {
+    o[4] = 1;
+  }
+  if (true) {
+    o[5] = 2;
+  }
+  while (false) {
+    o[6] = 3;
+  }
+  if (!(true && x == 1)) {
+    o[7] = 4;
+  }
+  if (y != y) {
+    o[8] = 5;
+  }
+}
